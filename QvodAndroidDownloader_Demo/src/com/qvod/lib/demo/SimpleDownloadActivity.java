@@ -36,6 +36,7 @@ public class SimpleDownloadActivity extends Activity {
 	
 	private Downloader mDownloader;
 	
+	//test you can see?
 	private DownloadTaskInfo mRecordTaskInfo;
 
 	@Override
