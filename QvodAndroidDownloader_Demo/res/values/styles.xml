@@ -1,0 +1,51 @@
+<resources>
+
+      <style name="AppTheme" parent="android:Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@color/home_app_bg</item>
+        <item name="android:buttonStyle">@style/Button</item>
+        <item name="android:textViewStyle">@style/TextView</item>
+        <item name="android:editTextStyle">@style/EditText</item>
+        <item name="android:listViewStyle">@style/ListView</item>
+    </style>
+
+    <style name="TextView" parent="@android:style/Widget.TextView">
+        <item name="android:textColor">@color/home_text</item>
+        <item name="android:textSize">@dimen/home_text_size_content</item>
+    </style>
+    
+    <style name="ListView" parent="@android:style/Widget.ListView">
+        <item name="android:cacheColorHint">@android:color/transparent</item>
+        <item name="android:listSelector">@android:color/transparent</item>
+        <item name="android:divider">@null</item>
+    </style>
+ 
+    <style name="EditText" parent="@android:style/Widget.EditText">
+        <item name="android:background">@null</item>
+        <item name="android:textColor">@color/home_text</item>
+        <item name="android:textSize">@dimen/home_text_size_content</item>
+    </style>
+    
+    <style name="EditTextDialog" parent="@android:style/Widget.EditText">
+        <item name="android:background">@drawable/home_btn2_normal</item>
+        <item name="android:padding">10dp</item>
+        <item name="android:textSize">@dimen/home_text_size_content</item>
+    </style>
+
+    <style name="Button" parent="@android:style/Widget.Button">
+        <item name="android:background">@drawable/home_btn_normal</item>
+        <item name="android:padding">@dimen/home_button_pading</item>
+        <item name="android:textColor">@color/home_btn</item>
+        <item name="android:textSize">@dimen/home_text_size_content</item>
+    </style>
+
+
+    <style name="dialog" parent="@android:style/Theme.Dialog">
+        <item name="android:windowBackground">@color/home_app_bg</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowFrame">@null</item><!--边框-->
+        <item name="android:buttonStyle">@style/Button</item>
+        <item name="android:textViewStyle">@style/TextView</item>
+        <item name="android:editTextStyle">@style/EditTextDialog</item>
+    </style>
+</resources>

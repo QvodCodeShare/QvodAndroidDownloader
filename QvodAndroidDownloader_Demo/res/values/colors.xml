@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="transparent">#00000000</color>
+    <color name="red">#ff0000</color>
+    <color name="white">#ffffff</color>
+    <color name="home_app_bg">#F6F6F6</color>
+    <color name="home_setting_bg">@android:color/white</color>
+    <color name="home_setting_bg_press">#e1f3ff</color>
+    <color name="home_setting_item_split">#E5E5E5</color>
+    <color name="home_title_bg">#068FE7</color>
+    <color name="home_title_bg_press">#0e7bd1</color>
+    <color name="home_title_bg_tip">#88AFE7</color>
+    <color name="home_text_normal">#282828</color>
+    <color name="home_text_press">#118FE7</color>
+    <color name="home_text_high_light_unable">#88118FE7</color>
+    <color name="home_sub_title">#999999</color>
+    <color name="home_setting_item_control">#ff4c4b</color>
+    <color name="home_setting_item_control_press">#ff8888</color>
+    <color name="home_list_header_bg">#b2b2b2</color>
+    
+
+</resources>

@@ -1,0 +1,16 @@
+<resources>
+    <dimen name="home_text_size_big">24sp</dimen>
+    <dimen name="home_text_size_title">20sp</dimen>
+    <dimen name="home_text_size_content">16sp</dimen>
+    <dimen name="home_text_size_tip">13sp</dimen>
+    <dimen name="home_button_pading">12dp</dimen>
+    <dimen name="home_setting_item_height">64dp</dimen>
+    <dimen name="home_item_max_width">220dp</dimen>
+    <dimen name="home_setting_item_height3">192dp</dimen>
+    <dimen name="home_divider_height">14dp</dimen>
+    <dimen name="home_divider_height_heighter">20dp</dimen>
+    <dimen name="home_switch_width">64dp</dimen>
+    <dimen name="home_switch_height">24dp</dimen>
+    <dimen name="home_setting_icon_margin">3dp</dimen>
+    <dimen name="home_title_bar_popup_width">120dp</dimen>
+</resources>
