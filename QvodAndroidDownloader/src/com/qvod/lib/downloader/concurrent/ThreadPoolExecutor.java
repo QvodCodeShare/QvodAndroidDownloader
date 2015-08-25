@@ -1,9 +1,5 @@
 package com.qvod.lib.downloader.concurrent;
-/*
- * Written by Doug Lea with assistance from members of JCP JSR-166
- * Expert Group and released to the public domain, as explained at
- * http://creativecommons.org/licenses/publicdomain
- */
+
 
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
@@ -796,7 +792,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * Invokes the rejected execution handler for the given command.
      * Package-protected for use by ScheduledThreadPoolExecutor.
      */
-    final void reject(Runnable command) {
+    protected final void reject(Runnable command) {
         handler.rejectedExecution(command, this);
     }
 
