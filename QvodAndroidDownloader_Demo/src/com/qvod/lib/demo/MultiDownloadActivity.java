@@ -19,25 +19,25 @@ import butterknife.OnClick;
 
 import com.qvod.downloader.demo.R;
 import com.qvod.lib.demo.widget.UpgradeProgressBar;
+import com.qvod.lib.downloader.DownloadOption;
+import com.qvod.lib.downloader.DownloadParameter;
 import com.qvod.lib.downloader.DownloadState;
 import com.qvod.lib.downloader.DownloadStateChangeListener;
 import com.qvod.lib.downloader.DownloadTaskInfo;
-import com.qvod.lib.downloader.Downloader;
+import com.qvod.lib.downloader.IDownloader;
+import com.qvod.lib.downloader.multithread.MultiThreadDownloader;
 
 /**
  * [描述]
- 
- test asaaaaaaaaaaaaa
- 
  * @author 李理
  * @date 2015年8月19日
  */
-public class SimpleDownloadActivity extends Activity {
+public class MultiDownloadActivity extends Activity {
 
 	private final static String TAG = "Downloader";
 	private Handler mHandler;
 	
-	private Downloader mDownloader;
+	private IDownloader mDownloader;
 	
 	//test you can see?
 	private DownloadTaskInfo mRecordTaskInfo;
@@ -49,18 +49,12 @@ public class SimpleDownloadActivity extends Activity {
 		setContentView(R.layout.simple_download_update_layout);
 		ButterKnife.inject(this);
 		mHandler = new Handler();
-		mDownloader = new Downloader();
+		mDownloader = new MultiThreadDownloader();
+		DownloadOption downloadOption = new DownloadOption();
+		downloadOption.downloadThreadSize = 2;
+		mDownloader.setDownloadOption(downloadOption);
 		showUpdateUI();
 		
-//		System.setProperty("http.proxyHost", "10.0.3.2"); 
-//		System.setProperty("http.proxyPort", "8888"); 
-//		System.setProperty("https.proxyHost", "10.0.3.2");
-//		System.setProperty("https.proxyPort", "8888");
-		
-//		System.setProperty("http.proxyHost", "localhost"); 
-//		System.setProperty("http.proxyPort", "8888"); 
-//		System.setProperty("https.proxyHost", "localhost");
-//		System.setProperty("https.proxyPort", "8888");
 	}
 	
 	@OnClick(R.id.btn_updrade)
@@ -106,12 +100,12 @@ public class SimpleDownloadActivity extends Activity {
 //				final String url = 
 //						"http://dare-04.yxdown.cn/yxdown.com_Warcraft3FrozenThrone1.26_chs.exe";
 				
-				//exe 700MB Url请求带有特殊字符，且需要Cookie，
+				//exe 700MB Url请求带有特殊字符，且�?要Cookie�?
 //				String url = 
 //						"http://download.52pk.com:8088/down.php?fileurl=aHR0cDovL2Rvd25sb2FkMS41MnBrLmNvbTo4MDg4L2hlenVvL3dhcjNfY25fY3dnYW1lLjUycGsuZXhl%&aid=58&key=419d15f955cde9a2f172523417e8f277";
 //				 url = url.replaceAll("%", "%25");
 				
-				//exe 700MB 下载速度一般 验证UserAgent，不正确则无法下载
+				//exe 700MB 下载速度�?�? 验证UserAgent，不正确则无法下�?
 //				String url = 
 //						"http://download1.52pk.com:8088/hezuo/war3_cn_cwgame.52pk.exe";
 				//apk 236MB 速度很快 
@@ -121,32 +115,40 @@ public class SimpleDownloadActivity extends Activity {
 //						"https://m.xiaoniu88.com:8477/mobile/s/apk/XNOnline_1.1.0.apk";
 //				String url = 
 //						"http://m.xiaoniu88.com:8077/mobile/s/apk/XNOnline_1.1.0.apk";
-				//普通的Https请求
+				//普�?�的Https请求
 //				String url = 
 //						"https://172.20.20.208:8477/mobile/home.json";
 //				String url = 
 //						"http://172.20.20.208:8002/mobile/home.json";
 				String saveFileDir = Environment.getExternalStorageDirectory().getAbsolutePath() + "/qvodDownloader";
 				if(mRecordTaskInfo == null) {
-					mDownloader.download(url, saveFileDir);
+//					mDownloader.download(url, saveFileDir);
+					DownloadParameter parameter = new DownloadParameter();
+					parameter.url = url;
+					parameter.saveFileDir = saveFileDir;
+					mDownloader.download(parameter);
 				} else {
-					mDownloader.download(
+					/*mDownloader.download(
 							mRecordTaskInfo.downloadParameter.url,
 							mRecordTaskInfo.downloadParameter.saveFileDir,
-							mRecordTaskInfo.currentDownloadSize,
-							0L);
+							mRecordTaskInfo.currentDownloadPos,
+							0L);*/
+					DownloadParameter parameter = mRecordTaskInfo.downloadParameter;
+					parameter.downloadSegments = mRecordTaskInfo.getDownloadSegments();
+					mDownloader.download(parameter);
 				}
 			}
 		}.start();
 	}
 	
-	DownloadStateChangeListener mDownloadStateChangeListener = new DownloadStateChangeListener() {
+    DownloadStateChangeListener mDownloadStateChangeListener = new DownloadStateChangeListener() {
 		
 		@Override
 		public void onDownloadStateChanged(final DownloadTaskInfo taskInfo) {
 			mHandler.post(new Runnable() {
 				@Override
 				public void run() {
+					Log.i(TAG, "state:" + taskInfo.downloadState);
 					switch (taskInfo.downloadState) {
 					case STATE_PREPARE:
 						updateDownloadState("文件下载准备中...");
@@ -189,7 +191,7 @@ public class SimpleDownloadActivity extends Activity {
 	private void recordDownloadProgress() {
 		mRecordTaskInfo = mDownloader.getDownloadTaskInfo();
 		Log.v(TAG, "recordDownloadProgress"
-				+ " downloadPos:" + mRecordTaskInfo.currentDownloadSize
+				+ " downloadPos:" + mRecordTaskInfo.currentDownloadPos
 				+ " downloadContentLength:" + mRecordTaskInfo.downloadFileLength
 				+ " startPos:" + mRecordTaskInfo.startDownloadPos
 				+ " pogress:" + mRecordTaskInfo.calcProgress());
