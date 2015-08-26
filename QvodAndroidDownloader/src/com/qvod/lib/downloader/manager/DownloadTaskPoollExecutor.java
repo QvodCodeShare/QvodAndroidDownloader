@@ -1,12 +1,12 @@
 package com.qvod.lib.downloader.manager;
 
 
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.qvod.lib.downloader.DownloadTaskInfo;
+import com.qvod.lib.downloader.concurrent.LinkedBlockingDeque;
 import com.qvod.lib.downloader.concurrent.ThreadPoolExecutor;
 
 /**
@@ -16,11 +16,13 @@ import com.qvod.lib.downloader.concurrent.ThreadPoolExecutor;
  */
 public class DownloadTaskPoollExecutor extends ThreadPoolExecutor {
 
+	private LinkedBlockingDeque<Runnable> mLinkedTaskQueue;
 	
 	public DownloadTaskPoollExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime) {
 		super(corePoolSize, maximumPoolSize, keepAliveTime, TimeUnit.MILLISECONDS, 
-				new LinkedBlockingQueue<Runnable>(), 
+				new LinkedBlockingDeque<Runnable>(), 
 				sThreadFactory);
+		mLinkedTaskQueue = (LinkedBlockingDeque<Runnable>)workQueue;
 	}
 
 	static ThreadFactory sThreadFactory = new ThreadFactory() {
@@ -33,36 +35,43 @@ public class DownloadTaskPoollExecutor extends ThreadPoolExecutor {
 	
 	@Override
 	public void execute(Runnable command) {
+		execute(command, false);
+	}
+	
+	public void execute(Runnable command, boolean isRunTaskTop) {
 		if (command == null)
 			throw new NullPointerException();
-
+		
 		int c = ctl.get();
 		if (workerCountOf(c) < corePoolSize) {
 			if (addWorker(command, true))
 				return;
 			c = ctl.get();
 		}
-
+		
 		if (workerCountOf(c) < maximumPoolSize) {
 			if (!addWorker(command, false)) {
 				reject(command);
 			}
 			return;
 		}
-
-		if (isRunning(c) && workQueue.offer(command)) {
-			int recheck = ctl.get();
-			if (!isRunning(recheck) && remove(command))
-				reject(command);
-			else if (workerCountOf(recheck) == 0)
-				addWorker(null, false);
-		} else {
-			reject(command);
+		
+		if (isRunning(c)) {
+			boolean isSuc = isRunTaskTop ? 
+					mLinkedTaskQueue.offerFirst(command) 
+					: mLinkedTaskQueue.offerLast(command);
+			if (isSuc) {
+				int recheck = ctl.get();
+				if (!isRunning(recheck) && remove(command))
+					reject(command);
+				else if (workerCountOf(recheck) == 0)
+					addWorker(null, false);
+				return;
+			}
 		}
+		reject(command);
 	}
-
-	public void getPeddingTasks() {
-	}
+	
 	
 	@Override
 	protected void beforeExecute(Thread t, Runnable r) {

@@ -1,6 +1,8 @@
 package com.qvod.lib.downloader.manager;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -27,7 +29,7 @@ public class DownloadTaskManager implements IDownloadManager {
 	
 	private final static String TAG = DownloadTaskManager.class.getSimpleName();
 
-	private Map<String, DownloadTaskInfo> mDownloadTasks = new HashMap<String, DownloadTaskInfo>();
+	private Map<String, DownloadTask> mDownloadTasks = new HashMap<String, DownloadTask>();
 	
 	private DownloadOption mDownloadOption = DownloadOption.sDefaultOption;
 	
@@ -38,10 +40,6 @@ public class DownloadTaskManager implements IDownloadManager {
 	
 	private NetworkStatus[] mAllowDownloadNetwork;
 	
-	private ReentrantLock networkLock = new ReentrantLock();
-    private final Condition networkCondition = networkLock.newCondition();
-    private boolean isWaitNetwork = false;
-    
 	private Context mContext;
 	
 	public DownloadTaskManager(Context context) {
@@ -49,100 +47,183 @@ public class DownloadTaskManager implements IDownloadManager {
 	}
 
 	@Override
-	public void createTask(DownloadParameter parameter) {
+	public synchronized void createTask(DownloadParameter parameter) {
 		if (mDownloadTasks.containsKey(parameter.id)) {
 			Log.e(TAG, "createTask already existing task");
 			return;
 		}
 		DownloadTaskInfo taskInfo = new DownloadTaskInfo();
+		//TODO 填充 taskInfo 的其他字段
 		taskInfo.downloadParameter = parameter;
-		mDownloadTasks.put(parameter.id, taskInfo);
+		DownloadTask task = new DownloadTask();
+		task.taskInfo = taskInfo;
+		mDownloadTasks.put(parameter.id, task);
 	}
 
 	@Override
-	public void runTask(String id, boolean needCutting) {
-		DownloadTaskInfo taskInfo = mDownloadTasks.get(id);
-		if (taskInfo == null) {
+	public synchronized void runTask(String id, boolean isRunTaskTop) {
+		DownloadTask task = mDownloadTasks.get(id);
+		if (task == null) {
+			return;
+		}
+		runTask(task, isRunTaskTop);
+	}
+
+	@Override
+	public synchronized void runAllTask() {
+		Iterator<Map.Entry<String,DownloadTask>> it = mDownloadTasks.entrySet().iterator();
+		while(it.hasNext()) {
+			DownloadTask task = it.next().getValue();
+			runTask(task, false);
+		}
+	}
+	
+	void runTask(DownloadTask task, boolean isRunTaskTop) {
+		if (task == null) {
+			return;
+		}
+		if (task.taskInfo != null) {
+			Log.v(TAG, "runTask 任务已开启  state: " + task.taskInfo.downloadState);
 			return;
 		}
 		
-		TaskRunnable runnable = new TaskRunnable(taskInfo);
-		mExecutor.execute(runnable);
-	}
-
-	@Override
-	public void runAllTask() {
-		// TODO Auto-generated method stub
-
+		TaskRunnable runnable = new TaskRunnable(task.taskInfo);
+		task.taskRunner = runnable;
+		setDownloadTaskState(task.taskInfo, DownloadState.STATE_QUEUE);
+		mExecutor.execute(runnable, isRunTaskTop);
 	}
 	
 	@Override
-	public void pauseTask(String id) {
-		// TODO Auto-generated method stub
-
+	public synchronized void pauseTask(String id) {
+		DownloadTask task = mDownloadTasks.get(id);
+		if (task == null) {
+			return;
+		}
+		pauseTask(task, true);
 	}
 
 	@Override
-	public void pauseAllTask() {
-		// TODO Auto-generated method stub
-
+	public synchronized void pauseAllTask() {
+		Iterator<Map.Entry<String,DownloadTask>> it = mDownloadTasks.entrySet().iterator();
+		while(it.hasNext()) {
+			DownloadTask task = it.next().getValue();
+			pauseTask(task, true);
+		}
+	}
+	
+	void pauseTask(DownloadTask task, boolean needChangeState) {
+		if (task == null) {
+			return;
+		}
+		if (task.taskRunner == null) {
+			Log.v(TAG, "pauseTask 任务未在执行 state: " + task.taskInfo.downloadState);
+			return;
+		}
+		if (needChangeState) {
+			setDownloadTaskState(task.taskInfo, DownloadState.STATE_STOP_ING);
+		}
+		boolean isRemoved = mExecutor.remove(task.taskRunner);
+		if (isRemoved) {
+			Log.v(TAG, "pauseTask 任务在执行队列中，移除成功");
+			if (needChangeState) {
+				setDownloadTaskState(task.taskInfo, DownloadState.STATE_STOP);
+			}
+			return;
+		}
+		task.taskRunner.stop();
+		task.taskRunner = null;
+		Log.v(TAG, "pauseTask 任务在执行中，stop");
 	}
 
 	@Override
-	public void deleteTask(String id) {
-		// TODO Auto-generated method stub
+	public synchronized void deleteTask(String id, boolean deleteFile) {
+		DownloadTask task = mDownloadTasks.remove(id);
+		if (task == null) {
+			return;
+		}
+		pauseTask(task, false);
+		if (deleteFile) {
+			deleteTaskFile(task.taskInfo);
+		}
+	} 
 
+	@Override
+	public synchronized void deleteAllTask(boolean deleteFile) {
+		Iterator<Map.Entry<String,DownloadTask>> it = mDownloadTasks.entrySet().iterator();
+		while(it.hasNext()) {
+			DownloadTask task = it.next().getValue();
+			it.remove();
+			pauseTask(task, false);
+			if (deleteFile) {
+				deleteTaskFile(task.taskInfo);
+			}
+		}
+	}
+	
+	void deleteTaskFile(DownloadTaskInfo taskInfo) {
+		String filePath = taskInfo.getSaveFilePath();
+		File file = new File(filePath);
+		if (file.exists()) {
+			file.delete();
+		}
+	} 
+
+	@Override
+	public synchronized DownloadTaskInfo getDownloadTask(String id) {
+		DownloadTask task = mDownloadTasks.get(id);
+		return task.taskInfo.clone();
 	}
 
 	@Override
-	public void deleteAllTask() {
-		// TODO Auto-generated method stub
-
+	public synchronized List<DownloadTaskInfo> getAllDownloadTask() {
+		return getDownloadTaskByState(null);
 	}
 
 	@Override
-	public DownloadTaskInfo getDownloadTask(String id) {
-		// TODO Auto-generated method stub
-		return null;
+	public synchronized List<DownloadTaskInfo> getDownloadTaskByState(DownloadState state) {
+		List<DownloadTaskInfo> list = new ArrayList<DownloadTaskInfo>(mDownloadTasks.size());
+		Iterator<Map.Entry<String,DownloadTask>> it = mDownloadTasks.entrySet().iterator();
+		while(it.hasNext()) {
+			DownloadTask task = it.next().getValue();
+			if (state != null && state != task.taskInfo.downloadState) {
+				continue;
+			}
+			list.add(task.taskInfo.clone());
+		}
+		return list;
 	}
 
 	@Override
-	public List<DownloadTaskInfo> getAllDownloadTask() {
-		// TODO Auto-generated method stub
-		return null;
+	public synchronized int getDownloadTaskCount() {
+		return getDownloadTaskCountByState(null);
 	}
 
 	@Override
-	public List<DownloadTaskInfo> getDownloadTaskByState(DownloadState state) {
-		// TODO Auto-generated method stub
-		return null;
+	public synchronized int getDownloadTaskCountByState(DownloadState state) {
+		int count = 0;
+		Iterator<Map.Entry<String,DownloadTask>> it = mDownloadTasks.entrySet().iterator();
+		while(it.hasNext()) {
+			DownloadTask task = it.next().getValue();
+			if (state != null && state != task.taskInfo.downloadState) {
+				continue;
+			}
+			count++;
+		}
+		return count;
 	}
 
 	@Override
-	public int getDownloadTaskCount() {
-		// TODO Auto-generated method stub
-		return 0;
-	}
-
-	@Override
-	public int getDownloadTaskCountByState(DownloadState state) {
-		// TODO Auto-generated method stub
-		return 0;
-	}
-
-	@Override
-	public void setAllowDownloadNetwork(NetworkStatus[] networkStatus) {
+	public synchronized void setAllowDownloadNetwork(NetworkStatus[] networkStatus) {
 		mAllowDownloadNetwork = networkStatus;
 	}
 
 	@Override
-	public NetworkStatus getAllowDownloadNetwork() {
-		// TODO Auto-generated method stub
-		return null;
+	public synchronized NetworkStatus[] getAllowDownloadNetwork() {
+		return mAllowDownloadNetwork;
 	}
 
 	@Override
-	public void addDownloadStateChangeListener(DownloadStateChangeListener listener) {
+	public synchronized void addDownloadStateChangeListener(DownloadStateChangeListener listener) {
 		if (listener == null || mStateChangeListeners.contains(listener)) {
 			return;
 		}
@@ -150,22 +231,21 @@ public class DownloadTaskManager implements IDownloadManager {
 	}
 
 	@Override
-	public void removeDownloadStateChangeListener(DownloadStateChangeListener listener) {
+	public synchronized void removeDownloadStateChangeListener(DownloadStateChangeListener listener) {
 		mStateChangeListeners.remove(listener);
 	}
 
 	@Override
-	public void saveAllDownloadState() {
+	public synchronized void saveAllDownloadState() {
 		// TODO Auto-generated method stub
 
 	}
 
 	@Override
-	public void resumeAllDownloadState() {
+	public synchronized void resumeAllDownloadState() {
 		// TODO Auto-generated method stub
 
 	}
-
 
 	@Override
 	public void setDownloadOption(DownloadOption option) {
@@ -176,17 +256,40 @@ public class DownloadTaskManager implements IDownloadManager {
 	private void applyDownloadOption() {
 		mExecutor.setKeepAliveTime(mDownloadOption.threadPoolKeepAliveTime, TimeUnit.MILLISECONDS);
 		mExecutor.setMaximumPoolSize(mDownloadOption.maxDownloadNum);
-		
 	}
 	
 	@Override
-	public void release() {
-
+	public synchronized void release() {
+		deleteAllTask(false);
+		mStateChangeListeners.clear();
+		mExecutor.clearTaskList();
+	}
+	
+	synchronized void setDownloadTaskState(DownloadTaskInfo taskInfo, DownloadState state) {
+		taskInfo.downloadState = state;
+		notifyDownloadStateChange(taskInfo.clone());
+	}
+	
+	synchronized void refreshDownloadTaskState(DownloadTaskInfo refreshTaskInfo) {
+		DownloadTask task = mDownloadTasks.get(refreshTaskInfo.downloadParameter.id);
+		DownloadTaskInfo taskInfo = task.taskInfo;
+		taskInfo.downloadState = refreshTaskInfo.downloadState;
+		taskInfo.currentDownloadSize = refreshTaskInfo.currentDownloadSize;
+		taskInfo.downloadFileLength = refreshTaskInfo.downloadFileLength;
+		taskInfo.errorResponseCode = refreshTaskInfo.errorResponseCode;
+		taskInfo.responseHeader = refreshTaskInfo.responseHeader;
+		taskInfo.saveFilePath = refreshTaskInfo.saveFilePath;
+		taskInfo.startDownloadPos = refreshTaskInfo.startDownloadPos;
+		taskInfo.extendsMap = refreshTaskInfo.extendsMap;
+		
+		if (refreshTaskInfo.downloadState.ordinal() <= DownloadState.STATE_NONE.ordinal()) {
+			task.taskRunner = null;
+		}
+		
+		notifyDownloadStateChange(taskInfo.clone());
 	}
 
 	void notifyDownloadStateChange(DownloadTaskInfo taskInfo) {
-		//TODO Refresh DownloadTaskInfo 
-		
 		for(DownloadStateChangeListener listener : mStateChangeListeners) {
 			listener.onDownloadStateChanged(taskInfo);
 		}
@@ -196,6 +299,14 @@ public class DownloadTaskManager implements IDownloadManager {
 		
 		DownloadTaskInfo taskInfo;
 		
+		Downloader downloader = new Downloader();
+		
+		volatile boolean isRun = true;
+		
+		private ReentrantLock networkLock = new ReentrantLock();
+	    private final Condition networkCondition = networkLock.newCondition();
+	    private boolean isWaitNetwork = false;
+		
 		public TaskRunnable(DownloadTaskInfo taskInfo) {
 			this.taskInfo = taskInfo;
 		}
@@ -204,13 +315,12 @@ public class DownloadTaskManager implements IDownloadManager {
 		public void run() {
 			do {
 				NetworkStatus currentNetworkStatus = NetworkStatus.getNetworkStatus(mContext);
-				if (! isAllowDownload(currentNetworkStatus)
-						|| currentNetworkStatus == NetworkStatus.NETWORK_NONE) {
+				boolean isAllowDownload = !isAllowDownload(currentNetworkStatus);
+				if (isAllowDownload) {
 					//当前无网络或当前网络类型不允许进行下载，则等待网络恢复
 					waitNetwork();
 				}
 				
-				Downloader downloader = new Downloader();
 				downloader.setDownloadStateChangeListener(this);
 				downloader.setDownloadOption(mDownloadOption);
 				DownloadState state = downloader.download(taskInfo.downloadParameter);
@@ -221,22 +331,30 @@ public class DownloadTaskManager implements IDownloadManager {
 					if (currentNetworkStatus == NetworkStatus.NETWORK_NONE
 							&& isAllowDownload(NetworkStatus.NETWORK_NONE))  {
 						//下载错误，且当前无网络，且无网络状态下运行进行下载
+						Log.v(TAG, "TaskRunnable 运行结束，任务在无网络情况下出现下载错误，且当前任务允许无网络下继续下载，等待网络恢复后继续下载");
 						continue;
 					} else {
+						Log.v(TAG, "TaskRunnable 运行结束");
 						DownloadTaskInfo notifyTaskInfo = downloader.getDownloadTaskInfo();
-						notifyDownloadStateChange(notifyTaskInfo);
+						refreshDownloadTaskState(notifyTaskInfo);
 					}
 				}
 				break;
-			} while(true);
+			} while(isRun);
+		}
+		
+		void stop() {
+			isRun = false;
+			downloader.stop();
+			signalNetwork();
 		}
 		
 		@Override
-		public void onDownloadStateChanged(DownloadTaskInfo taskInfo) {
-			if (taskInfo.downloadState == DownloadState.STATE_ERROR) {
+		public void onDownloadStateChanged(DownloadTaskInfo notifyTaskInfo) {
+			if (notifyTaskInfo.downloadState == DownloadState.STATE_ERROR) {
 				return;
 			}
-			notifyDownloadStateChange(taskInfo);
+			refreshDownloadTaskState(notifyTaskInfo);
 		}
 
 		@Override
@@ -260,6 +378,36 @@ public class DownloadTaskManager implements IDownloadManager {
 		public String toString() {
 			return "Runnable " + taskInfo.toString();
 		}
+		
+		private void waitNetwork() {
+			networkLock.lock();
+			try {
+				if (! isRun) {
+					Log.d(TAG, "awaitNetwork stoped");
+					return;
+				}
+				Log.d(TAG, "awaitNetwork");
+				isWaitNetwork = true;
+				networkCondition.await();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			} finally {
+				networkLock.unlock();
+			}
+		}
+		
+		private void signalNetwork() {
+			networkLock.lock();
+			try {
+				if (! isWaitNetwork) {
+					return;
+				}
+				Log.v(TAG, "signalNetwork");
+				networkCondition.signalAll();
+			} finally {
+				networkLock.unlock();
+			}
+		}
 	}
 	
 	private boolean isAllowDownload(NetworkStatus status) {
@@ -274,30 +422,9 @@ public class DownloadTaskManager implements IDownloadManager {
 		return false;
 	}
 	
-	private void waitNetwork() {
-		networkLock.lock();
-		try {
-			Log.d(TAG, "awaitNetwork");
-			isWaitNetwork = true;
-			networkCondition.await();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		} finally {
-			networkLock.unlock();
-		}
-	}
-	
-	private void signalNetwork() {
-		networkLock.lock();
-		try {
-			if (! isWaitNetwork) {
-				return;
-			}
-			Log.v(TAG, "signalNetwork");
-			networkCondition.signalAll();
-		} finally {
-			networkLock.unlock();
-		}
+	class DownloadTask {
+		TaskRunnable taskRunner;
+		DownloadTaskInfo taskInfo;
 	}
 
 }

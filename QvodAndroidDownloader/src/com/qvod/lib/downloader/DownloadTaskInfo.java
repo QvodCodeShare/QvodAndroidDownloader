@@ -42,7 +42,7 @@ public class DownloadTaskInfo {
 	 * 下载任务信息的扩展字段集
 	 * 非必要参数都收集在此
 	 */
-	private Map<String, Object> mExtendsMap;
+	public Map<String, Object> extendsMap;
 	
 	/**
 	 * 服务器返回的Http头信息
@@ -85,24 +85,62 @@ public class DownloadTaskInfo {
 		if (segments == null) {
 			return;
 		}
-		if (mExtendsMap == null) {
-			mExtendsMap = new HashMap<String, Object>();
+		if (extendsMap == null) {
+			extendsMap = new HashMap<String, Object>();
 		}
-		mExtendsMap.put(EXTENDS_DOWNLOAD_SEGMENTS, segments);
+		extendsMap.put(EXTENDS_DOWNLOAD_SEGMENTS, segments);
 	}
 	
 	public List<DownloadSegment> getDownloadSegments() {
-		if (mExtendsMap == null) {
+		if (extendsMap == null) {
 			return null;
 		}
-		Object obj = mExtendsMap.get(EXTENDS_DOWNLOAD_SEGMENTS);
+		Object obj = extendsMap.get(EXTENDS_DOWNLOAD_SEGMENTS);
 		if (obj == null) {
 			return null;
 		}
 		return (List<DownloadSegment>)obj;
 	}
 	
+	public String getSaveFilePath() {
+		if (saveFilePath != null) {
+			return saveFilePath;
+		}
+		if (downloadParameter.saveFileName == null) {
+			return null;
+		}
+		String filePath = downloadParameter.saveFileDir + "/" + downloadParameter.saveFileName;
+		return filePath;
+	}
+ 	
 	private static final String EXTENDS_DOWNLOAD_SEGMENTS = "downloadSegments";
+
+	@Override
+	public DownloadTaskInfo clone() {
+//		try {
+//			ByteArrayOutputStream bo = new ByteArrayOutputStream();
+//			ObjectOutputStream oo = new ObjectOutputStream(bo);
+//			oo.writeObject(this);
+//			ByteArrayInputStream bi = new ByteArrayInputStream(bo.toByteArray());
+//			ObjectInputStream oi = new ObjectInputStream(bi);
+//			return(oi.readObject());
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//		return null;
+		
+		DownloadTaskInfo taskInfo = new DownloadTaskInfo();
+		taskInfo.currentDownloadSize = this.currentDownloadSize;
+		taskInfo.downloadFileLength = this.downloadFileLength;
+		taskInfo.downloadParameter = this.downloadParameter;
+		taskInfo.downloadState = this.downloadState;
+		taskInfo.errorResponseCode = this.errorResponseCode;
+		taskInfo.extendsMap = this.extendsMap;
+		taskInfo.responseHeader = this.responseHeader;
+		taskInfo.saveFilePath = this.saveFilePath;
+		taskInfo.startDownloadPos = this.startDownloadPos;
+		return taskInfo;
+	}
 	
 	
 }

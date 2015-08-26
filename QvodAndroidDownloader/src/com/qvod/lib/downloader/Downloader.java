@@ -65,7 +65,7 @@ public class Downloader implements IDownloader {
 	
 	private DownloadStateChangeListener mListener;
 	
-	private AtomicBoolean mIsRun = new AtomicBoolean(false);
+	private AtomicBoolean mIsRun = new AtomicBoolean(true);
 	
 	private DownloadState mCurrentState;
 	private int mErrorResponseCode;
@@ -75,6 +75,7 @@ public class Downloader implements IDownloader {
 	private long mEndDownloadPos = 0;
 	
 	private long mDownloadFileSize;
+	private String mSaveFilePath;
 	
 	private Thread mCurrentDownloadThread;
 	
@@ -146,10 +147,6 @@ public class Downloader implements IDownloader {
 	
 	@Override
 	public DownloadState download(DownloadParameter parameter) {
-		if (mIsRun.get()) {
-			return DownloadState.STATE_NONE;
-		}
-		mIsRun.set(true);
 		mDownloadParameter = parameter;
 		mCurrentDownloadThread = Thread.currentThread();
 		DownloadState result = download();
@@ -181,6 +178,7 @@ public class Downloader implements IDownloader {
 		taskInfo.downloadFileLength = mDownloadFileSize;
 		taskInfo.errorResponseCode = mErrorResponseCode;
 		taskInfo.responseHeader = mResponseHeader;
+		taskInfo.saveFilePath = mSaveFilePath;
 		return taskInfo;
 	}
 	
@@ -359,15 +357,9 @@ public class Downloader implements IDownloader {
 			if (DownloadUtils.isEmpty(saveFileName)) {
 				saveFileName = getFileName();
 			}
-			String saveFilePath = saveDir + "/" + saveFileName; 
-			String tempFilePath = getDownladTempFileName(saveFilePath);
-			File file = new File(tempFilePath);
-			if (! file.exists()) {
-				file.createNewFile();
-				Log.v(TAG, "download 创建新文件");
-			}
+			mSaveFilePath = saveDir + "/" + saveFileName; 
 			updateDownloadTaskInfo(DownloadState.STATE_DOWNLOAD, 0);
-			downloadStream(saveFilePath, mStartDownloadSize, inputStream);
+			downloadStream(mSaveFilePath, mStartDownloadSize, inputStream);
 			
 			if (mIsRun.get()) {
 				updateDownloadTaskInfo(DownloadState.STATE_COMPLETED, ResponseCode.RESULT_SUC);
@@ -451,10 +443,15 @@ public class Downloader implements IDownloader {
 		Log.w(TAG, "downloadStream 下载数据流 downloadPath:" + downloadPath 
 				+ " - startDownloadPos:" + startPos + " - fileSize:" + mEndDownloadPos  
 				+ " - url:" + mDownloadParameter.url);
+		if (! mIsRun.get()) {
+			Log.i(TAG, "downloadStream 任务被暂停 ");
+			return;
+		}
 		String tempFilePath = getDownladTempFileName(downloadPath);
 		File file = new File(tempFilePath);
 		if (! file.exists()) {
-			throw new RuntimeException("下载文件中途被删除");
+			file.createNewFile();
+			Log.v(TAG, "download 创建新文件");
 		}
 
 		int offset = 0;

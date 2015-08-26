@@ -18,7 +18,7 @@ public interface IDownloadManager {
 
 	 void createTask(DownloadParameter parameter);
 	 
-	 void runTask(String id, boolean needCutting);
+	 void runTask(String id, boolean isRunTaskTop);
 	 
 	 void runAllTask();
 	 
@@ -26,9 +26,9 @@ public interface IDownloadManager {
 	 
 	 void pauseAllTask();
 	 
-	 void deleteTask(String id);
+	 void deleteTask(String id, boolean deleteFile);
 	 
-	 void deleteAllTask();
+	 void deleteAllTask(boolean deleteFile);
 	 
 	 DownloadTaskInfo getDownloadTask(String id);
 	 
@@ -42,7 +42,7 @@ public interface IDownloadManager {
 	 
 	 void setAllowDownloadNetwork(NetworkStatus[] networkStatus);
 	 
-	 NetworkStatus getAllowDownloadNetwork();
+	 NetworkStatus[] getAllowDownloadNetwork();
 	 
 	 void addDownloadStateChangeListener(DownloadStateChangeListener listener);
 	 

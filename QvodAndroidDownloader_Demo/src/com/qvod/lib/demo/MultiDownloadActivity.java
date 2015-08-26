@@ -51,7 +51,7 @@ public class MultiDownloadActivity extends Activity {
 		mHandler = new Handler();
 		mDownloader = new MultiThreadDownloader();
 		DownloadOption downloadOption = new DownloadOption();
-		downloadOption.downloadThreadSize = 2;
+		downloadOption.downloadThreadNum = 2;
 		mDownloader.setDownloadOption(downloadOption);
 		showUpdateUI();
 		
@@ -191,7 +191,7 @@ public class MultiDownloadActivity extends Activity {
 	private void recordDownloadProgress() {
 		mRecordTaskInfo = mDownloader.getDownloadTaskInfo();
 		Log.v(TAG, "recordDownloadProgress"
-				+ " downloadPos:" + mRecordTaskInfo.currentDownloadPos
+				+ " downloadPos:" + mRecordTaskInfo.currentDownloadSize
 				+ " downloadContentLength:" + mRecordTaskInfo.downloadFileLength
 				+ " startPos:" + mRecordTaskInfo.startDownloadPos
 				+ " pogress:" + mRecordTaskInfo.calcProgress());

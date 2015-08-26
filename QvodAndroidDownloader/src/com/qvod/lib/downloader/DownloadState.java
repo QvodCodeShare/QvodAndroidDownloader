@@ -6,7 +6,21 @@ package com.qvod.lib.downloader;
  */
 public enum DownloadState {
 
-	
+	/**
+	 * 错误
+	 */
+	STATE_ERROR,
+	/**
+	 * 已暂停
+	 */
+	STATE_STOP, 
+	/**
+	 * 已完成
+	 */
+	STATE_COMPLETED, 
+	/**
+	 * 无状态
+	 */
 	STATE_NONE,
 	/**
 	 * 排队中
@@ -25,18 +39,6 @@ public enum DownloadState {
 	 * 正在暂停
 	 */
 	STATE_STOP_ING,
-	/**
-	 * 已暂停
-	 */
-	STATE_STOP, 
-	/**
-	 * 已完成
-	 */
-	STATE_COMPLETED, 
-	/**
-	 * 错误
-	 */
-	STATE_ERROR,
 
 }
 
