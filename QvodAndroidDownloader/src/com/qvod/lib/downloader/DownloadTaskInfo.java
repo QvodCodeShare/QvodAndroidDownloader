@@ -14,7 +14,7 @@ public class DownloadTaskInfo {
 
 	public DownloadParameter downloadParameter;
 	
-	public DownloadState downloadState;
+	public DownloadState downloadState = DownloadState.STATE_NONE;
 	
 	/**
 	 * 文件的保存位置
@@ -30,9 +30,9 @@ public class DownloadTaskInfo {
 	 */
 	public long startDownloadPos;
 	/**
-	 * 文件的下载位置
+	 * 文件的下载大小
 	 */
-	public long currentDownloadPos;
+	public long currentDownloadSize;
 	/**
 	 * 文件的下载长度
 	 */
@@ -78,7 +78,7 @@ public class DownloadTaskInfo {
 		if (downloadFileLength == -1) {
 			return 0;
 		}
-		return (currentDownloadPos/(float)downloadFileLength) * 100;
+		return (currentDownloadSize/(float)downloadFileLength) * 100;
 	}
 	
 	public void setDownloadSegments(List<DownloadSegment> segments) {
