@@ -7,7 +7,7 @@ package com.qvod.lib.downloader;
  */
 public interface IDownloader {
 
-	void download(DownloadParameter parameter);
+	DownloadState download(DownloadParameter parameter);
 	
 	void stop();
 	

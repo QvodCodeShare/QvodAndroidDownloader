@@ -11,7 +11,7 @@ import java.util.Map;
  */
 public class DownloadParameter {
 
-	public String id;
+	public String id = "ID:"+hashCode();
 	
 	public String url;
 	

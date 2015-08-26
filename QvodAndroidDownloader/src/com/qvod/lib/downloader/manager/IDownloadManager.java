@@ -1,6 +1,7 @@
 package com.qvod.lib.downloader.manager;
 import java.util.List;
 
+import com.qvod.lib.downloader.DownloadOption;
 import com.qvod.lib.downloader.DownloadParameter;
 import com.qvod.lib.downloader.DownloadState;
 import com.qvod.lib.downloader.DownloadStateChangeListener;
@@ -39,7 +40,7 @@ public interface IDownloadManager {
 	 
 	 int getDownloadTaskCountByState(DownloadState state);
 	 
-	 void setAllowDownloadNetwork(NetworkStatus networkStatus);
+	 void setAllowDownloadNetwork(NetworkStatus[] networkStatus);
 	 
 	 NetworkStatus getAllowDownloadNetwork();
 	 
@@ -50,6 +51,8 @@ public interface IDownloadManager {
 	 void saveAllDownloadState();
 	 
 	 void resumeAllDownloadState();
+	 
+	 void setDownloadOption(DownloadOption option);
 	 
 	 void release();
 }

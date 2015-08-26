@@ -6,14 +6,36 @@ package com.qvod.lib.downloader;
  */
 public enum DownloadState {
 
+	
+	STATE_NONE,
+	/**
+	 * 排队中
+	 */
+	STATE_QUEUE,
 	/**
 	 * 下载准备中
 	 * 进行的准备工作包括文件创建、建立网络连接
 	 */
 	STATE_PREPARE, 
+	/**
+	 * 下载中
+	 */
 	STATE_DOWNLOAD, 
+	/**
+	 * 正在暂停
+	 */
+	STATE_STOP_ING,
+	/**
+	 * 已暂停
+	 */
 	STATE_STOP, 
+	/**
+	 * 已完成
+	 */
 	STATE_COMPLETED, 
+	/**
+	 * 错误
+	 */
 	STATE_ERROR,
 
 }
