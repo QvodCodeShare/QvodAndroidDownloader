@@ -85,7 +85,7 @@ public class MultiThreadDownloader implements IDownloader {
 		for (int i = 0; i < threadNum; i++) {
 			DownloadSegment downloadSegment = new DownloadSegment();
 			downloadSegment.startPos = i * mBlock;
-			downloadSegment.endPos = i == threadNum - 1 ? mFileSize : (i + 1) * mBlock;
+			downloadSegment.endPos = i == threadNum ? mFileSize : (i + 1) * mBlock -1;
 			downloadSegment.downloadPos = 0;
 			downloadSegments.add(downloadSegment);
 		}
@@ -105,7 +105,9 @@ public class MultiThreadDownloader implements IDownloader {
 			blockDownloadParameter.connectTimeout = parameter.connectTimeout;
 			blockDownloadParameter.readTimeout = parameter.readTimeout;
 			blockDownloadParameter.tag = parameter.tag;
-			blockDownloadParameter.downloadSegments = downloadSegments;
+			List<DownloadSegment> downloadSegmentList = new ArrayList<DownloadSegment>();
+			downloadSegmentList.add(downloadSegments.get(i));
+			blockDownloadParameter.downloadSegments = downloadSegmentList;
 			mBlockDownloadParameter.add(blockDownloadParameter);
 		}
 	}
@@ -185,6 +187,7 @@ public class MultiThreadDownloader implements IDownloader {
 		taskInfo.startDownloadPos = 0;
 		taskInfo.currentDownloadSize = getDownloadSize();
 		taskInfo.downloadFileLength = mFileSize;
+		Log.w(TAG, "currentDownloadSize:" + taskInfo.currentDownloadSize + "downloadFileLength:" + mFileSize);
 		taskInfo.errorResponseCode = mErrorResponseCode;
 		taskInfo.responseHeader = mResponseHeader;
 		if (getDownloadSegment() != null) {
@@ -252,9 +255,10 @@ public class MultiThreadDownloader implements IDownloader {
 	}
 
 	private int getDownloadFileInfo(DownloadParameter parameter) {
+		HttpURLConnection conn = null;
 		try {
 			URL url = new URL(parameter.url);
-			HttpURLConnection conn = getConnection(url, parameter.method,
+			conn = getConnection(url, parameter.method,
 					parameter.httpHeader, parameter.connectTimeout,
 					parameter.readTimeout);
 			int responseCode = conn.getResponseCode();
@@ -274,7 +278,11 @@ public class MultiThreadDownloader implements IDownloader {
 
 		} catch (Exception e) {
 			e.printStackTrace();
-		}
+		} /*finally {
+			if (conn != null) {
+				conn.disconnect();
+			}
+		}*/
 
 		return 0;
 	}

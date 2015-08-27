@@ -1,5 +1,7 @@
 package com.qvod.lib.demo;
 
+import java.io.File;
+
 import android.app.Activity;
 import android.os.Bundle;
 import android.os.Environment;
@@ -41,6 +43,8 @@ public class MultiDownloadActivity extends Activity {
 	
 	//test you can see?
 	private DownloadTaskInfo mRecordTaskInfo;
+	
+	private String saveFileDir;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -51,10 +55,17 @@ public class MultiDownloadActivity extends Activity {
 		mHandler = new Handler();
 		mDownloader = new MultiThreadDownloader();
 		DownloadOption downloadOption = new DownloadOption();
-		downloadOption.downloadThreadSize = 2;
+		downloadOption.downloadThreadNum = 1;
 		mDownloader.setDownloadOption(downloadOption);
 		showUpdateUI();
-		
+		saveFileDir = Environment.getExternalStorageDirectory().getAbsolutePath() + "/qvodDownloader";
+		File file = new File(saveFileDir);
+		if (file.exists()) {
+			File [] files = file.listFiles();
+			for (File f : files) {
+				f.delete();
+			}
+		}
 	}
 	
 	@OnClick(R.id.btn_updrade)
@@ -85,7 +96,7 @@ public class MultiDownloadActivity extends Activity {
 //				testHttps();
 //				testHttps2();
 				//APK 5MB
-//				final String url = "http://p.gdown.baidu.com/2f6cc56ab05e862068e9d0fc22cfe70b289ccba7dcd53aa231f0664ac35d558c8f1a4c37102429f3c652cacd2998bfa94d9526b9053614bea543aaf5c1616e3877acd4ee624d53379c75c965392f9dc48718f892f76fe99f4641a0ddb59628d86300c0485aeab794314e4d1a4dc3e210becfad9f3178f6e14cf0b63d722d446ec1885f86be4a67579732149c57216b9a2268761f458cc6db53a8aab307e4ddba76741a8ed9c6e9182edbbbb27c27d4d08e9498344f9aa8f8a896f01f509e84ed030159ab4b797325824153d8380ee876c5a1bf1b0e2348446e122b447dd1309068f468e0e828b5c0b0c0ef21592edb1434524dbf39e308150d8d088fb2419cec52651f73c5d0e63407dc443636e2ff713bd8f9b882089e4bd9de680014f55391c4794e1c5f445786380a560463812034e33c7316735bcd3e0f19eca6b9425b6ace5a4be9681f191feaf13bb491df39a3c7d245b9ed8b4ef4";
+				final String url = "http://p.gdown.baidu.com/2f6cc56ab05e862068e9d0fc22cfe70b289ccba7dcd53aa231f0664ac35d558c8f1a4c37102429f3c652cacd2998bfa94d9526b9053614bea543aaf5c1616e3877acd4ee624d53379c75c965392f9dc48718f892f76fe99f4641a0ddb59628d86300c0485aeab794314e4d1a4dc3e210becfad9f3178f6e14cf0b63d722d446ec1885f86be4a67579732149c57216b9a2268761f458cc6db53a8aab307e4ddba76741a8ed9c6e9182edbbbb27c27d4d08e9498344f9aa8f8a896f01f509e84ed030159ab4b797325824153d8380ee876c5a1bf1b0e2348446e122b447dd1309068f468e0e828b5c0b0c0ef21592edb1434524dbf39e308150d8d088fb2419cec52651f73c5d0e63407dc443636e2ff713bd8f9b882089e4bd9de680014f55391c4794e1c5f445786380a560463812034e33c7316735bcd3e0f19eca6b9425b6ace5a4be9681f191feaf13bb491df39a3c7d245b9ed8b4ef4";
 				//JPG 
 //				final String url =
 //						"http://d.hiphotos.baidu.com/image/h%3D200/sign=fe8467f657da81cb51e684cd6267d0a4/2f738bd4b31c8701f2613de4217f9e2f0608ffd9.jpg";
@@ -109,8 +120,8 @@ public class MultiDownloadActivity extends Activity {
 //				String url = 
 //						"http://download1.52pk.com:8088/hezuo/war3_cn_cwgame.52pk.exe";
 				//apk 236MB 速度很快 
-				String url = 
-						"http://cdn.longtugame.com/channel_bin/520006/apk/4.1.2/520006_397.apk";
+				/*String url = 
+						"http://cdn.longtugame.com/channel_bin/520006/apk/4.1.2/520006_397.apk";*/
 //				String url = 
 //						"https://m.xiaoniu88.com:8477/mobile/s/apk/XNOnline_1.1.0.apk";
 //				String url = 
@@ -120,7 +131,7 @@ public class MultiDownloadActivity extends Activity {
 //						"https://172.20.20.208:8477/mobile/home.json";
 //				String url = 
 //						"http://172.20.20.208:8002/mobile/home.json";
-				String saveFileDir = Environment.getExternalStorageDirectory().getAbsolutePath() + "/qvodDownloader";
+				
 				if(mRecordTaskInfo == null) {
 //					mDownloader.download(url, saveFileDir);
 					DownloadParameter parameter = new DownloadParameter();
@@ -191,7 +202,7 @@ public class MultiDownloadActivity extends Activity {
 	private void recordDownloadProgress() {
 		mRecordTaskInfo = mDownloader.getDownloadTaskInfo();
 		Log.v(TAG, "recordDownloadProgress"
-				+ " downloadPos:" + mRecordTaskInfo.currentDownloadPos
+				+ " downloadPos:" + mRecordTaskInfo.currentDownloadSize
 				+ " downloadContentLength:" + mRecordTaskInfo.downloadFileLength
 				+ " startPos:" + mRecordTaskInfo.startDownloadPos
 				+ " pogress:" + mRecordTaskInfo.calcProgress());
