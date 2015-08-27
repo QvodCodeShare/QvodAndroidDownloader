@@ -55,7 +55,7 @@ public class MultiDownloadActivity extends Activity {
 		mHandler = new Handler();
 		mDownloader = new MultiThreadDownloader();
 		DownloadOption downloadOption = new DownloadOption();
-		downloadOption.downloadThreadNum = 2;
+		downloadOption.downloadThreadNum = 1;
 		mDownloader.setDownloadOption(downloadOption);
 		showUpdateUI();
 		saveFileDir = Environment.getExternalStorageDirectory().getAbsolutePath() + "/qvodDownloader";
