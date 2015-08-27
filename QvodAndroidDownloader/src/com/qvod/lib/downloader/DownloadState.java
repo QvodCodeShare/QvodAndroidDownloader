@@ -19,9 +19,9 @@ public enum DownloadState {
 	 */
 	STATE_COMPLETED, 
 	/**
-	 * 无状态
+	 * 任务创建成功
 	 */
-	STATE_NONE,
+	STATE_CREATED,
 	/**
 	 * 排队中
 	 */

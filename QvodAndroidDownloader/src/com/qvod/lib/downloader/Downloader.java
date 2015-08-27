@@ -75,7 +75,7 @@ public class Downloader implements IDownloader {
 	private long mEndDownloadPos = 0;
 	
 	private long mDownloadFileSize;
-	private String mSaveFilePath;
+	private String mSaveFileName;
 	
 	private Thread mCurrentDownloadThread;
 	
@@ -178,7 +178,7 @@ public class Downloader implements IDownloader {
 		taskInfo.downloadFileLength = mDownloadFileSize;
 		taskInfo.errorResponseCode = mErrorResponseCode;
 		taskInfo.responseHeader = mResponseHeader;
-		taskInfo.saveFilePath = mSaveFilePath;
+		taskInfo.saveFileName = mSaveFileName;
 		return taskInfo;
 	}
 	
@@ -214,6 +214,10 @@ public class Downloader implements IDownloader {
 			mStartDownloadSize = segment.downloadPos;
 			mCurrentDownloadSize = segment.downloadPos;
 			mEndDownloadPos = segment.endPos;
+			if (mEndDownloadPos > 0) {
+				mDownloadFileSize = mEndDownloadPos;
+			}
+			Log.e(TAG, "currentdownsize" + mCurrentDownloadSize + "startDownloadSize:" + mStartDownloadSize + "endPos:" + mEndDownloadPos);
 		}
 		
 		if (! mIsRun.get()) {
@@ -318,8 +322,8 @@ public class Downloader implements IDownloader {
 			if (DownloadUtils.isNumber(len)) {
 				contentLength = Long.parseLong(len.toString());
 			}
-			if (contentLength != -1) {
-				mDownloadFileSize = mStartDownloadSize + contentLength;
+			if (contentLength > 0) {
+				mDownloadFileSize = mStartDownloadSize + contentLength-1;
 			}
 //			if (contentLength <= 0) {
 //				Log.i(TAG, "download 远程文件长度异常 - currentDownloadSize:" + mCurrentDownloadSize + " - contentLength:" + contentLength);
@@ -357,9 +361,10 @@ public class Downloader implements IDownloader {
 			if (DownloadUtils.isEmpty(saveFileName)) {
 				saveFileName = getFileName();
 			}
-			mSaveFilePath = saveDir + "/" + saveFileName; 
+			mSaveFileName = saveFileName;
+			String saveFilePath = saveDir + "/" + saveFileName; 
 			updateDownloadTaskInfo(DownloadState.STATE_DOWNLOAD, 0);
-			downloadStream(mSaveFilePath, mStartDownloadSize, inputStream);
+			downloadStream(saveFilePath, mStartDownloadSize, inputStream);
 			
 			if (mIsRun.get()) {
 				updateDownloadTaskInfo(DownloadState.STATE_COMPLETED, ResponseCode.RESULT_SUC);
@@ -514,7 +519,7 @@ public class Downloader implements IDownloader {
 		 * acceptable encodings in the request header。
 		 */
 		conn.setRequestProperty("Accept-Encoding", "identity"); 
- 		if (startPos > 0 && endPos > 0) {
+ 		if (startPos >= 0 && endPos > 0) {
 			//不能设置end范围，部分服务器不支持end参数会导致请求错误
 			conn.setRequestProperty("Range", "bytes=" + startPos + "-" + endPos);
 		} else if (startPos > 0) {

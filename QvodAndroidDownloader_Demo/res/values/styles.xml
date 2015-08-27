@@ -1,11 +1,8 @@
 <resources>
 
-      <style name="AppTheme" parent="android:Theme.Black.NoTitleBar">
+      <style name="AppTheme" parent="android:Theme.Holo">
+        <item name="android:windowNoTitle">true</item>
         <item name="android:windowBackground">@color/home_app_bg</item>
-        <item name="android:buttonStyle">@style/Button</item>
-        <item name="android:textViewStyle">@style/TextView</item>
-        <item name="android:editTextStyle">@style/EditText</item>
-        <item name="android:listViewStyle">@style/ListView</item>
     </style>
 
     <style name="TextView" parent="@android:style/Widget.TextView">

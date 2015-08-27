@@ -4,6 +4,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.qvod.lib.downloader.utils.DownloadUtils;
+
 /**
  * [下载任务的描述信息]
  * 
@@ -14,7 +16,7 @@ public class DownloadTaskInfo {
 
 	public DownloadParameter downloadParameter;
 	
-	public DownloadState downloadState = DownloadState.STATE_NONE;
+	public DownloadState downloadState;
 	
 	/**
 	 * 文件的保存位置
@@ -22,7 +24,7 @@ public class DownloadTaskInfo {
 	 * 如果被设置，则saveFilePath是 downloadParameter 的路径与文件明拼接出来
 	 * 如果未设置，则saveFilePath的文件名自动生成，并且组装出新的saveFilePath
 	 */
-	public String saveFilePath;
+	public String saveFileName;
 	
 	/**
 	 * 文件的起始位置
@@ -103,14 +105,20 @@ public class DownloadTaskInfo {
 	}
 	
 	public String getSaveFilePath() {
-		if (saveFilePath != null) {
-			return saveFilePath;
-		}
-		if (downloadParameter.saveFileName == null) {
-			return null;
-		}
-		String filePath = downloadParameter.saveFileDir + "/" + downloadParameter.saveFileName;
+		String filePath = downloadParameter.saveFileDir + "/" + getSaveFileName();
 		return filePath;
+	}
+	
+	public String getSaveFileName() {
+		String fileName = null;
+		if (downloadParameter.saveFileName != null) {
+			fileName = downloadParameter.saveFileName;
+		} else if (saveFileName != null) {
+			fileName = saveFileName;
+		} else {
+			fileName = DownloadUtils.getFileName(downloadParameter.url);
+		}
+		return fileName;
 	}
  	
 	private static final String EXTENDS_DOWNLOAD_SEGMENTS = "downloadSegments";
@@ -137,7 +145,7 @@ public class DownloadTaskInfo {
 		taskInfo.errorResponseCode = this.errorResponseCode;
 		taskInfo.extendsMap = this.extendsMap;
 		taskInfo.responseHeader = this.responseHeader;
-		taskInfo.saveFilePath = this.saveFilePath;
+		taskInfo.saveFileName = this.saveFileName;
 		taskInfo.startDownloadPos = this.startDownloadPos;
 		return taskInfo;
 	}

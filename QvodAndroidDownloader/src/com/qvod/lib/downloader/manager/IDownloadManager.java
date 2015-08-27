@@ -16,7 +16,7 @@ import com.qvod.lib.downloader.DownloadTaskInfo;
  */
 public interface IDownloadManager {
 
-	 void createTask(DownloadParameter parameter);
+	 boolean createTask(DownloadParameter parameter);
 	 
 	 void runTask(String id, boolean isRunTaskTop);
 	 
