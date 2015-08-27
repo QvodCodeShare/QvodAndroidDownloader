@@ -47,10 +47,10 @@ public class DownloadTaskManager implements IDownloadManager {
 	}
 
 	@Override
-	public synchronized void createTask(DownloadParameter parameter) {
+	public synchronized boolean createTask(DownloadParameter parameter) {
 		if (mDownloadTasks.containsKey(parameter.id)) {
 			Log.e(TAG, "createTask already existing task");
-			return;
+			return false;
 		}
 		DownloadTaskInfo taskInfo = new DownloadTaskInfo();
 		//TODO 填充 taskInfo 的其他字段
@@ -58,6 +58,8 @@ public class DownloadTaskManager implements IDownloadManager {
 		DownloadTask task = new DownloadTask();
 		task.taskInfo = taskInfo;
 		mDownloadTasks.put(parameter.id, task);
+		setDownloadTaskState(taskInfo, DownloadState.STATE_CREATED);
+		return true;
 	}
 
 	@Override
@@ -278,11 +280,12 @@ public class DownloadTaskManager implements IDownloadManager {
 		taskInfo.downloadFileLength = refreshTaskInfo.downloadFileLength;
 		taskInfo.errorResponseCode = refreshTaskInfo.errorResponseCode;
 		taskInfo.responseHeader = refreshTaskInfo.responseHeader;
-		taskInfo.saveFilePath = refreshTaskInfo.saveFilePath;
+		taskInfo.saveFileName = refreshTaskInfo.saveFileName;
 		taskInfo.startDownloadPos = refreshTaskInfo.startDownloadPos;
 		taskInfo.extendsMap = refreshTaskInfo.extendsMap;
 		
-		if (refreshTaskInfo.downloadState.ordinal() <= DownloadState.STATE_NONE.ordinal()) {
+		if (task.taskRunner != null 
+				&& refreshTaskInfo.downloadState.ordinal() <= DownloadState.STATE_CREATED.ordinal()) {
 			task.taskRunner = null;
 		}
 		

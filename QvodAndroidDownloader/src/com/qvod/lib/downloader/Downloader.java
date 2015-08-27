@@ -75,7 +75,7 @@ public class Downloader implements IDownloader {
 	private long mEndDownloadPos = 0;
 	
 	private long mDownloadFileSize;
-	private String mSaveFilePath;
+	private String mSaveFileName;
 	
 	private Thread mCurrentDownloadThread;
 	
@@ -178,7 +178,7 @@ public class Downloader implements IDownloader {
 		taskInfo.downloadFileLength = mDownloadFileSize;
 		taskInfo.errorResponseCode = mErrorResponseCode;
 		taskInfo.responseHeader = mResponseHeader;
-		taskInfo.saveFilePath = mSaveFilePath;
+		taskInfo.saveFileName = mSaveFileName;
 		return taskInfo;
 	}
 	
@@ -211,7 +211,7 @@ public class Downloader implements IDownloader {
 		String saveFileName = mDownloadParameter.saveFileName;
 		if (mDownloadParameter.downloadSegments != null && mDownloadParameter.downloadSegments.size() > 0) {
 			DownloadSegment segment = mDownloadParameter.downloadSegments.get(0);
-			mStartDownloadSize = segment.downloadPos + segment.startPos;
+			mStartDownloadSize = segment.downloadPos;
 			mCurrentDownloadSize = segment.downloadPos;
 			mEndDownloadPos = segment.endPos;
 			if (mEndDownloadPos > 0) {
@@ -226,9 +226,8 @@ public class Downloader implements IDownloader {
 			return DownloadState.STATE_STOP;
 		}
 		
-		Log.w(TAG, "download prepare"
-				+ "startPos:" + mStartDownloadSize
-				+ " currentSize:" + mCurrentDownloadSize 
+		Log.v(TAG, "download prepare"
+				+ " startPos:" + mCurrentDownloadSize 
 				+ " endPos:" + mEndDownloadPos  
 				+ " url:" + url);
 		updateDownloadTaskInfo(DownloadState.STATE_PREPARE, 0);
@@ -323,11 +322,9 @@ public class Downloader implements IDownloader {
 			if (DownloadUtils.isNumber(len)) {
 				contentLength = Long.parseLong(len.toString());
 			}
-			Log.e(TAG, "downloadFileSize1:" + mDownloadFileSize);
-			if (contentLength != -1) {
-				mDownloadFileSize = mStartDownloadSize + contentLength -1;
-			} 
-			Log.e(TAG, "downloadFileSize2:" + mDownloadFileSize +"contentLength:" + contentLength + "mStartDownloadSize:" + mStartDownloadSize);
+			if (contentLength > 0) {
+				mDownloadFileSize = mStartDownloadSize + contentLength-1;
+			}
 //			if (contentLength <= 0) {
 //				Log.i(TAG, "download 远程文件长度异常 - currentDownloadSize:" + mCurrentDownloadSize + " - contentLength:" + contentLength);
 //				updateDownloadTaskInfo(DownloadState.STATE_ERROR, ResponseCode.RESPONSE_CONTENT_LENGTH_ERROR);
@@ -364,9 +361,10 @@ public class Downloader implements IDownloader {
 			if (DownloadUtils.isEmpty(saveFileName)) {
 				saveFileName = getFileName();
 			}
-			mSaveFilePath = saveDir + "/" + saveFileName; 
+			mSaveFileName = saveFileName;
+			String saveFilePath = saveDir + "/" + saveFileName; 
 			updateDownloadTaskInfo(DownloadState.STATE_DOWNLOAD, 0);
-			downloadStream(mSaveFilePath, mStartDownloadSize, inputStream);
+			downloadStream(saveFilePath, mStartDownloadSize, inputStream);
 			
 			if (mIsRun.get()) {
 				updateDownloadTaskInfo(DownloadState.STATE_COMPLETED, ResponseCode.RESULT_SUC);
@@ -465,7 +463,7 @@ public class Downloader implements IDownloader {
 		try {
 			mWriteAccessFile = new RandomAccessFile(file, "rw");
 			mWriteAccessFile.seek(startPos);
-			Log.e(TAG, "downloadStream seek:" + startPos);
+			Log.v(TAG, "downloadStream seek:" + startPos);
 			
 			//TODO 需要测试出最佳Buffer大小
 			int buffereSize = mDownloadOption.downloadBuffer;
@@ -485,7 +483,7 @@ public class Downloader implements IDownloader {
 //					Log.v(TAG, "downloadStream currentDownloadSize:" + mCurrentDownloadSize  + " - url:" + mDownloadParameter.url);
 				} while((offset = bis.read(buffer, 0, buffereSize)) != -1);
 			}
-			Log.e(TAG, "downloadStream 下载结束，当前下载大小：" + mCurrentDownloadSize);
+			Log.v(TAG, "downloadStream 下载结束，当前下载大小：" + mCurrentDownloadSize);
 			
 			mWriteAccessFile.close();
 			if (offset == -1) {

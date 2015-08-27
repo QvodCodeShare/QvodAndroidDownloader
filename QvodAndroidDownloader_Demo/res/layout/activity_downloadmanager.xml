@@ -1,0 +1,114 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical" >
+
+    <FrameLayout
+        android:layout_width="fill_parent"
+        android:layout_height="50dp"
+        >
+    <RelativeLayout
+        android:id="@+id/top_normal_title"
+        android:layout_width="fill_parent"
+        android:layout_height="50dp"
+        android:background="@color/home_title_bg"
+        android:gravity="center_vertical" >
+
+        <Button
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="fill_parent"
+            android:drawableLeft="@drawable/home_nav_back"
+            android:drawablePadding="10dp"
+            android:background="@null"
+            android:gravity="center_vertical"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:text="下载管理"
+            android:textColor="@drawable/ihome_title_btn_color"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+        
+         <ImageView
+            android:id="@+id/btn_add_task"
+            android:layout_width="wrap_content"
+            android:layout_height="fill_parent"
+            android:src="@drawable/ibox_folder_operation_create_white"
+            android:background="@drawable/ibox_bottom_bar_region_click"
+            android:layout_alignParentRight="true"
+            android:gravity="center_vertical"
+            android:layout_marginRight="10dp"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/top_edit_title"
+        android:layout_width="fill_parent"
+        android:layout_height="50dp"
+        android:background="@color/home_title_bg"
+        android:visibility="gone"
+        android:gravity="center_vertical" >
+
+        <Button
+            android:id="@+id/btn_left"
+            android:layout_width="wrap_content"
+            android:layout_height="fill_parent"
+            android:gravity="center"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:text="取消"
+            android:background="@null"
+            android:textColor="@drawable/ihome_title_btn_color"
+            android:textSize="15sp" />
+
+        <Button
+            android:id="@+id/btn_center"
+            android:layout_width="wrap_content"
+            android:layout_height="fill_parent"
+            android:layout_centerInParent="true"
+            android:background="#00000000"
+            android:gravity="center"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:text="@string/ihome_remote_download_edit_center_text"
+            android:textColor="@android:color/white"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btn_right"
+            android:layout_width="wrap_content"
+            android:layout_height="fill_parent"
+            android:layout_alignParentRight="true"
+            android:gravity="center"
+            android:background="@null"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:text="全选"
+            android:textColor="@drawable/ihome_title_btn_color"
+            android:textSize="15sp" />
+    </RelativeLayout>
+	</FrameLayout>
+	 
+     <include 
+        layout="@layout/layout_downloadlist"
+        />
+
+    <Button
+        android:id="@+id/btn_bottom"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:drawableTop="@drawable/ibox_folder_operation_delete"
+        android:background="@drawable/ihome_bottom_bar_bg"
+        android:gravity="center"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        android:text="删除"
+        android:textColor="#1c8be5"
+        android:textSize="15sp" />
+
+</LinearLayout>

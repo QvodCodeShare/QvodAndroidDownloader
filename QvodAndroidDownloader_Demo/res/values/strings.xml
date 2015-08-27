@@ -2,5 +2,6 @@
 <resources>
 
     <string name="app_name">QvodAndroidDownloader_Demo</string>
+    <string name="ihome_remote_download_edit_center_text">已选择%s项</string>
 
 </resources>

@@ -18,6 +18,9 @@
     <color name="home_setting_item_control">#ff4c4b</color>
     <color name="home_setting_item_control_press">#ff8888</color>
     <color name="home_list_header_bg">#b2b2b2</color>
-    
+    <color name="color_F6F6F6">#B2F6F6F6</color>
+    <color name="color_gray">#999999</color>
+    <color name="folder_fragment_bottom_bar_region">#e0f4fe</color>
+    <color name="home_title_text_press">#a8caf3</color>
 
 </resources>
