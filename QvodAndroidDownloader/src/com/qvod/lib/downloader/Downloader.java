@@ -147,6 +147,7 @@ public class Downloader implements IDownloader {
 	
 	@Override
 	public DownloadState download(DownloadParameter parameter) {
+		mIsRun.set(true);
 		mDownloadParameter = parameter;
 		mCurrentDownloadThread = Thread.currentThread();
 		DownloadState result = download();
