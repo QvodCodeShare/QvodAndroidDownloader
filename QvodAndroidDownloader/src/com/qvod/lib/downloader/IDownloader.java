@@ -18,5 +18,7 @@ public interface IDownloader {
 	void setDownloadStateChangeListener(DownloadStateChangeListener listener);
 	
 	void setDownloadOption(DownloadOption downloadOption);
+	
+	void setAutoNotifyDownloadEvent(boolean isAutoNotify, long intervalTime);
 }
 

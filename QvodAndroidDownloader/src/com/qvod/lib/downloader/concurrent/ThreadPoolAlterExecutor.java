@@ -1,10 +1,9 @@
 package com.qvod.lib.downloader.concurrent;
 
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * [修改后的线程池]
@@ -35,6 +34,22 @@ public class ThreadPoolAlterExecutor extends ThreadPoolExecutor {
 		super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
 	}
 
+	/**
+	 * [创建一个可伸缩线程的线程池]<BR>
+	 * 当线程池中的 空线程数>corePoolSize 且等待 keepAliveTime毫秒后任然没执行新任务，则会从回收释放该线程
+	 * 
+	 * @param corePoolSize
+	 * @param maximumPoolSize
+	 * @param keepAliveTime
+	 * @return
+	 */
+	public static ThreadPoolExecutor createFlexibleExecutor(
+			int corePoolSize, int maximumPoolSize, long keepAliveTime) {
+		ThreadPoolAlterExecutor executor = new ThreadPoolAlterExecutor(
+				corePoolSize, maximumPoolSize, keepAliveTime, TimeUnit.MILLISECONDS, 
+				new LinkedBlockingQueue<Runnable>());
+		return executor;
+	}
 
 	@Override
 	public void execute(Runnable command) {

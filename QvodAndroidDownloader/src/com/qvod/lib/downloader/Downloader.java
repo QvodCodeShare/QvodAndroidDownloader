@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.zip.GZIPInputStream;
 
 import javax.net.ssl.HostnameVerifier;
@@ -30,10 +31,12 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
+import android.os.Handler;
 import android.util.Log;
 
 import com.qvod.lib.downloader.DownloadTaskInfo.ResponseCode;
 import com.qvod.lib.downloader.utils.DownloadUtils;
+import com.qvod.lib.downloader.utils.HandlerThread;
 
 /**
  * [基础下载器]
@@ -65,7 +68,7 @@ public class Downloader implements IDownloader {
 	
 	private DownloadStateChangeListener mListener;
 	
-	private AtomicBoolean mIsRun = new AtomicBoolean(true);
+	private AtomicBoolean mIsRun = new AtomicBoolean(false);
 	
 	private DownloadState mCurrentState;
 	private int mErrorResponseCode;
@@ -82,6 +85,12 @@ public class Downloader implements IDownloader {
 	private RandomAccessFile mWriteAccessFile;
 	
 	private Map<String, String> mResponseHeader = new HashMap<String, String>();
+	
+	/**
+	 * 是否自动通知下载中的事件
+	 */
+	private volatile boolean mIsAutoNotifyDownloadEvent;
+	private long mAutoNofiyEventIntervalTime;
 	
 	/**
 	 * 是否打印头信息
@@ -190,7 +199,12 @@ public class Downloader implements IDownloader {
 	
 	@Override
 	public void setDownloadStateChangeListener(DownloadStateChangeListener listener) {
-		mListener = listener;
+		notifyLock.lock();
+		try {
+			mListener = listener;
+		} finally {
+			notifyLock.unlock();
+		}
 	}
 	
 	@Override
@@ -546,22 +560,120 @@ public class Downloader implements IDownloader {
 		return conn;
 	}
 	
-	private void updateDownloadTaskInfo(DownloadState state, int errorReason) {
-		mCurrentState = state;
-		mErrorResponseCode = errorReason;
-		DownloadTaskInfo taskInfo = getDownloadTaskInfo();
-		if (mListener == null) {
-			return;
+	@Override
+	public void setAutoNotifyDownloadEvent(boolean isAutoNotify, long intervalTime) {
+		if (isAutoNotify) {
+			openAutoNotify(false);
+		} else {
+			closeAutoNofiy();
 		}
-		if (state == DownloadState.STATE_STOP) {
-			mListener.onDownloadStateChanged(taskInfo);
-		} else
-		if (mIsRun.get()) {
-			Log.v(TAG, "updateDownloadTaskInfo state:" + state 
-					+ " - url:" + mDownloadParameter.url
-					+ " - ThreadID:" + Thread.currentThread().getId());
-			mListener.onDownloadStateChanged(taskInfo);
-		} 
+		mAutoNofiyEventIntervalTime = intervalTime;
+		mIsAutoNotifyDownloadEvent = isAutoNotify;
+	}
+	
+	private volatile Handler mHandler;
+
+	private ReentrantLock notifyLock = new ReentrantLock();
+    
+	private void openAutoNotify(final boolean isDelayNotify) {
+		notifyLock.lock();
+		try {
+			if (mHandler != null) {
+				Log.v(TAG, "openAutoNotify 正在刷新中...");
+				NotifyRunnable notifyRunnable = new NotifyRunnable();
+				if (isDelayNotify) {
+					mHandler.postDelayed(notifyRunnable , mAutoNofiyEventIntervalTime);
+				} else {
+					mHandler.post(notifyRunnable);
+				}
+				return;
+			}
+			HandlerThread thread = new HandlerThread(TAG){
+				protected boolean onLooperPrepared() {
+					notifyLock.lock();
+					try {
+						if (! mIsAutoNotifyDownloadEvent) {
+							Log.v(TAG, "openAutoNotify onLooperPrepared 已关闭");
+							return false;
+						}
+						mHandler = new Handler();
+						NotifyRunnable notifyRunnable = new NotifyRunnable();
+						if (isDelayNotify) {
+							mHandler.postDelayed(notifyRunnable , mAutoNofiyEventIntervalTime);
+						} else {
+							mHandler.post(notifyRunnable);
+						}
+						return true;
+					} finally {
+						notifyLock.unlock();
+					}
+			    }
+			};
+			thread.start();
+		} finally {
+			notifyLock.unlock();
+		}
+	}
+	
+	private void closeAutoNofiy() {
+		notifyLock.lock();
+		try {
+			if (mHandler != null) {
+				mHandler.removeCallbacks(null);
+				mHandler.getLooper().quit();
+			}
+			mHandler = null;
+		} finally {
+			notifyLock.unlock();
+		}
+	}
+	
+	class NotifyRunnable implements Runnable {
+		@Override
+		public void run() {
+			notifyLock.lock();
+			try {
+				if (mCurrentState != DownloadState.STATE_DOWNLOAD) {
+					return;
+				}
+				DownloadTaskInfo taskInfo = getDownloadTaskInfo();
+				if (taskInfo.downloadState != DownloadState.STATE_DOWNLOAD) {
+					return;
+				}
+				DownloadStateChangeListener listener = mListener;
+				if (listener == null) {
+					return;
+				}
+				listener.onDownloadStateChanged(taskInfo);
+				
+				mHandler.postDelayed(this, mAutoNofiyEventIntervalTime);
+			} finally {
+				notifyLock.unlock();
+			}
+		}
+	}
+	
+	private void updateDownloadTaskInfo(DownloadState state, int errorReason) {
+		try {
+			mCurrentState = state;
+			mErrorResponseCode = errorReason;
+			DownloadTaskInfo taskInfo = getDownloadTaskInfo();
+			DownloadStateChangeListener listener = mListener;
+			if (listener == null) {
+				return;
+			}
+			if (state == DownloadState.STATE_STOP) {
+				listener.onDownloadStateChanged(taskInfo);
+			} else
+			if (mIsRun.get()) {
+				Log.v(TAG, "updateDownloadTaskInfo state:" + state 
+						+ " - url:" + mDownloadParameter.url
+						+ " - ThreadID:" + Thread.currentThread().getId());
+				listener.onDownloadStateChanged(taskInfo);
+			} 
+		} finally {
+			notifyLock.unlock();
+		}
 	}
 	
 	private void writeHttpHeadMap(HttpURLConnection conn, Map<String, String> map) {

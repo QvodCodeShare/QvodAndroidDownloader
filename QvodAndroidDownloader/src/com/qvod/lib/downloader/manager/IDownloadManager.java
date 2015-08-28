@@ -34,7 +34,7 @@ public interface IDownloadManager {
 	 
 	 List<DownloadTaskInfo> getAllDownloadTask();
 	 
-	 List<DownloadTaskInfo> getDownloadTaskByState(DownloadState state);
+	 List<DownloadTaskInfo> getDownloadTaskByState(DownloadState[] state);
 	 
 	 int getDownloadTaskCount();
 	 

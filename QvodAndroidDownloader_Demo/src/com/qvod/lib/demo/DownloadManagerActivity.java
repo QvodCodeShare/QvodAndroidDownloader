@@ -1,5 +1,7 @@
 package com.qvod.lib.demo;
 
+import java.util.List;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -7,6 +9,7 @@ import android.content.DialogInterface;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.AdapterView;
@@ -26,6 +29,8 @@ import com.qvod.lib.downloader.DownloadParameter;
 import com.qvod.lib.downloader.DownloadState;
 import com.qvod.lib.downloader.DownloadStateChangeListener;
 import com.qvod.lib.downloader.DownloadTaskInfo;
+import com.qvod.lib.downloader.concurrent.ThreadPoolAlterExecutor;
+import com.qvod.lib.downloader.concurrent.ThreadPoolExecutor;
 import com.qvod.lib.downloader.manager.DownloadTaskManager;
 
 /**
@@ -34,6 +39,8 @@ import com.qvod.lib.downloader.manager.DownloadTaskManager;
  * @date 2015年8月26日
  */
 public class DownloadManagerActivity extends Activity implements OnItemLongClickListener, OnItemClickListener{
+	
+	private final static String TAG = DownloadManagerActivity.class.getSimpleName();
 
 	private final static String PARAM_SAVE_FILE_DIR = Environment.getExternalStorageDirectory().getAbsolutePath() + "/QvodDownload"; 
 	
@@ -45,6 +52,9 @@ public class DownloadManagerActivity extends Activity implements OnItemLongClick
 	private DownloadTaskManager mDownloadManager;
 	
 	private Handler mHandler;
+	private ThreadPoolExecutor mExecutor;
+	
+	private String[] mSettingUrls;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -61,12 +71,15 @@ public class DownloadManagerActivity extends Activity implements OnItemLongClick
 		mDownloadManager.addDownloadStateChangeListener(downloadListener);
 		
 		mHandler = new Handler();
+		mExecutor = ThreadPoolAlterExecutor.createFlexibleExecutor(0, 5, 1 * 60);
+		mSettingUrls = getResources().getStringArray(R.array.urls);
 	}
 	
 	DownloadStateChangeListener downloadListener = new DownloadStateChangeListener() {
 
 		@Override
 		public void onDownloadStateChanged(final DownloadTaskInfo taskInfo) {
+			Log.v(TAG, "onDownloadStateChanged taskInfo " + taskInfo.downloadState);
 			mHandler.post(new Runnable() {
 				@Override
 				public void run() {
@@ -76,6 +89,12 @@ public class DownloadManagerActivity extends Activity implements OnItemLongClick
 						mAdapter.addDownloadItem(refreshItem);
 					}
 					mAdapter.notifyDataSetChanged();
+					
+					if (!isAutoRefreshTask && 
+							taskInfo.downloadState == DownloadState.STATE_DOWNLOAD) {
+						Log.v(TAG, "autoRefreshProgress");
+						autoRefreshProgress();
+					}
 				}
 			});
 		}
@@ -87,7 +106,7 @@ public class DownloadManagerActivity extends Activity implements OnItemLongClick
 		public void onSwichClick(DownloadItem file) {
 			if (file.state.ordinal() >= DownloadState.STATE_QUEUE.ordinal()) {
 				mDownloadManager.pauseTask(file.id);
-			} else if (file.state.ordinal() <= DownloadState.STATE_STOP.ordinal()) {
+			} else if (file.state.ordinal() <= DownloadState.STATE_CREATED.ordinal()) {
 				mDownloadManager.runTask(file.id, false);
 			}
 		}
@@ -104,6 +123,56 @@ public class DownloadManagerActivity extends Activity implements OnItemLongClick
 				
 			}
 		}.start();
+	}
+	
+	private boolean isAutoRefreshTask;
+	private void autoRefreshProgress() {
+		isAutoRefreshTask = true;
+		mHandler.postDelayed(mRefreshProgressRunnable, 1000);
+	}
+	
+	private void cacelRefreshProgress() {
+		isAutoRefreshTask = false;
+		mHandler.removeCallbacks(mRefreshProgressRunnable);
+	}
+	
+	Runnable mRefreshProgressRunnable = new Runnable() {
+		
+		DownloadState[] state = new DownloadState[]{DownloadState.STATE_DOWNLOAD};
+
+		@Override
+		public void run() {
+			mExecutor.execute(new Runnable() {
+				@Override
+				public void run() {
+					final List<DownloadTaskInfo> list = mDownloadManager.getDownloadTaskByState(state);
+					mHandler.post(new Runnable() {
+						@Override
+						public void run() {
+							refershDownloadingTask(list);
+							
+							if (list.size() > 0) {
+								autoRefreshProgress();
+							}
+						}
+					});
+				}
+			});
+		}
+	};
+
+	private void refershDownloadingTask(List<DownloadTaskInfo> list) {
+		for(DownloadTaskInfo taskInfo : list) {
+			DownloadItem item = mAdapter.findDownloadItem(taskInfo.downloadParameter.id);
+			DownloadItem refreshItem = convertDownloadItem(item, taskInfo);
+			if (item == null) {
+				mAdapter.addDownloadItem(refreshItem);
+			}
+			
+			Log.v(TAG, "refershDownloadingTask " + refreshItem.name + " progress:" + refreshItem.progress);
+		}
+		mAdapter.notifyDataSetChanged();
+		Log.v(TAG, "refershDownloadingTask size:" + list.size());
 	}
 	 
 	@OnClick(R.id.btn_add_task)
@@ -132,15 +201,21 @@ public class DownloadManagerActivity extends Activity implements OnItemLongClick
 	}
 
 	private void showAddTaskDialog() {
-	   LayoutInflater factory = LayoutInflater.from(this);
-       final View textEntryView = factory.inflate(R.layout.alert_dialog_text_entry, null);
-       Dialog dialog = new AlertDialog.Builder(this)
+		LayoutInflater factory = LayoutInflater.from(this);
+       	final View textEntryView = factory.inflate(R.layout.alert_dialog_text_entry, null);
+ 	  	final EditText editText = (EditText)textEntryView.findViewById(R.id.edit_url);
+ 	  	String hintUrl = mSettingUrls[(int)(Math.random()*mSettingUrls.length)];
+ 	  	editText.setHint(hintUrl);
+
+ 	  	Dialog dialog = new AlertDialog.Builder(this)
            .setTitle("添加下载任务")
            .setView(textEntryView)
            .setPositiveButton("确定", new DialogInterface.OnClickListener() {
                    public void onClick(DialogInterface dialog, int whichButton) {
-                	  EditText editText = (EditText)((AlertDialog)dialog).findViewById(R.id.edit_url);
                 	  String url = editText.getText().toString();
+                	  if (url.trim().equals("")) {
+                		  url = editText.getHint().toString();
+                	  }
                 	  if (! url.toLowerCase().startsWith("http://")) {
                 		  Toast.makeText(getApplicationContext(), "Url不合法", Toast.LENGTH_SHORT).show();
                 		  return;
@@ -153,7 +228,7 @@ public class DownloadManagerActivity extends Activity implements OnItemLongClick
             	   dialog.dismiss();
                }
            }).create();
-       dialog.show();
+ 	  	dialog.show();
 	}
 
 	private DownloadItem convertDownloadItem(DownloadItem item, DownloadTaskInfo task) {

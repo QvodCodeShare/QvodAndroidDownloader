@@ -84,7 +84,7 @@ public class DownloadTaskManager implements IDownloadManager {
 		if (task == null) {
 			return;
 		}
-		if (task.taskInfo != null) {
+		if (task.taskRunner != null) {
 			Log.v(TAG, "runTask 任务已开启  state: " + task.taskInfo.downloadState);
 			return;
 		}
@@ -182,13 +182,22 @@ public class DownloadTaskManager implements IDownloadManager {
 	}
 
 	@Override
-	public synchronized List<DownloadTaskInfo> getDownloadTaskByState(DownloadState state) {
+	public synchronized List<DownloadTaskInfo> getDownloadTaskByState(DownloadState[] states) {
 		List<DownloadTaskInfo> list = new ArrayList<DownloadTaskInfo>(mDownloadTasks.size());
 		Iterator<Map.Entry<String,DownloadTask>> it = mDownloadTasks.entrySet().iterator();
 		while(it.hasNext()) {
 			DownloadTask task = it.next().getValue();
-			if (state != null && state != task.taskInfo.downloadState) {
-				continue;
+			if (states != null) {
+				boolean findState = false;
+				for(DownloadState s : states) {
+					if (s == task.taskInfo.downloadState) {
+						findState = true;
+						break;
+					}
+				}
+				if (! findState) {
+					continue;
+				}
 			}
 			list.add(task.taskInfo.clone());
 		}
@@ -285,7 +294,7 @@ public class DownloadTaskManager implements IDownloadManager {
 		taskInfo.extendsMap = refreshTaskInfo.extendsMap;
 		
 		if (task.taskRunner != null 
-				&& refreshTaskInfo.downloadState.ordinal() <= DownloadState.STATE_CREATED.ordinal()) {
+				&& refreshTaskInfo.downloadState.ordinal() <= DownloadState.STATE_COMPLETED.ordinal()) {
 			task.taskRunner = null;
 		}
 		

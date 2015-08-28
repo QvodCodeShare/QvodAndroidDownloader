@@ -15,13 +15,13 @@ public enum DownloadState {
 	 */
 	STATE_STOP, 
 	/**
-	 * 已完成
-	 */
-	STATE_COMPLETED, 
-	/**
 	 * 任务创建成功
 	 */
 	STATE_CREATED,
+	/**
+	 * 已完成
+	 */
+	STATE_COMPLETED, 
 	/**
 	 * 排队中
 	 */
