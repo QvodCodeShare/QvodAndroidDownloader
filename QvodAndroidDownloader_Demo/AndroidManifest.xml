@@ -32,12 +32,10 @@
         
         <activity
             android:name="com.qvod.lib.demo.SimpleDownloadActivity" >
-            <!-- 
            <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-             -->
         </activity>
         <activity
             android:name="com.qvod.lib.demo.MultiDownloadActivity" android:screenOrientation="portrait">
@@ -50,10 +48,12 @@
         </activity>
         <activity
             android:name="com.qvod.lib.demo.DownloadManagerActivity" android:screenOrientation="portrait">
+           <!-- 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            -->
         </activity>
     </application>
 

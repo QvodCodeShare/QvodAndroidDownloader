@@ -316,4 +316,15 @@ public class MultiThreadDownloader implements IDownloader {
 
 		return conn;
 	}
+
+	@Override
+	public void setAutoNotifyDownloadEvent(boolean isAutoNotify, long intervalTime) {
+		// TODO Auto-generated method stub
+		
+	}
+	
+	@Override
+	public boolean isAutoNotifyDownloadEvent() {
+		return false;
+	}
 }

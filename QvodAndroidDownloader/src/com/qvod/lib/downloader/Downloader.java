@@ -89,8 +89,11 @@ public class Downloader implements IDownloader {
 	/**
 	 * 是否自动通知下载中的事件
 	 */
-	private volatile boolean mIsAutoNotifyDownloadEvent;
-	private long mAutoNofiyEventIntervalTime;
+	private volatile boolean mIsAutoNotifyDownloadEvent = true;
+	private long mAutoNofiyEventIntervalTime = 1000;
+	private Handler mHandler;
+	private ReentrantLock notifyLock = new ReentrantLock();
+    
 	
 	/**
 	 * 是否打印头信息
@@ -379,6 +382,8 @@ public class Downloader implements IDownloader {
 			mSaveFileName = saveFileName;
 			String saveFilePath = saveDir + "/" + saveFileName; 
 			updateDownloadTaskInfo(DownloadState.STATE_DOWNLOAD, 0);
+			
+			autoNotifyDownload();
 			downloadStream(saveFilePath, mStartDownloadSize, inputStream);
 			
 			if (mIsRun.get()) {
@@ -555,37 +560,45 @@ public class Downloader implements IDownloader {
 				}
 			}
 		}
-		
-		
 		return conn;
 	}
 	
 	@Override
 	public void setAutoNotifyDownloadEvent(boolean isAutoNotify, long intervalTime) {
-		if (isAutoNotify) {
-			openAutoNotify(false);
-		} else {
-			closeAutoNofiy();
-		}
-		mAutoNofiyEventIntervalTime = intervalTime;
-		mIsAutoNotifyDownloadEvent = isAutoNotify;
-	}
-	
-	private volatile Handler mHandler;
-
-	private ReentrantLock notifyLock = new ReentrantLock();
-    
-	private void openAutoNotify(final boolean isDelayNotify) {
 		notifyLock.lock();
 		try {
+			mAutoNofiyEventIntervalTime = intervalTime;
+			mIsAutoNotifyDownloadEvent = isAutoNotify;
+			autoNotifyDownload();
+		} finally {
+			notifyLock.unlock();
+		}
+	}
+	
+	@Override
+	public boolean isAutoNotifyDownloadEvent() {
+		return mIsAutoNotifyDownloadEvent;
+	}
+	
+	private void autoNotifyDownload() {
+		notifyLock.lock();
+		try {
+			if (! mIsAutoNotifyDownloadEvent) {
+				Log.v(TAG, "autoNotify closeAutoNofiy mIsAutoNotifyDownloadEvent:" + mIsAutoNotifyDownloadEvent);
+				closeAutoNofiy();
+				return;
+			}
+			if (mCurrentState != DownloadState.STATE_DOWNLOAD) {
+				Log.v(TAG, "autoNotify closeAutoNofiy"
+						+ " mCurrentState:" + mCurrentState 
+						+ " mIsAutoNotifyDownloadEvent:" + mIsAutoNotifyDownloadEvent);
+				closeAutoNofiy();
+				return;
+			}
 			if (mHandler != null) {
-				Log.v(TAG, "openAutoNotify 正在刷新中...");
+				Log.v(TAG, "autoNotify notifyRunnable");
 				NotifyRunnable notifyRunnable = new NotifyRunnable();
-				if (isDelayNotify) {
-					mHandler.postDelayed(notifyRunnable , mAutoNofiyEventIntervalTime);
-				} else {
-					mHandler.post(notifyRunnable);
-				}
+				mHandler.post(notifyRunnable);
 				return;
 			}
 			HandlerThread thread = new HandlerThread(TAG){
@@ -596,13 +609,10 @@ public class Downloader implements IDownloader {
 							Log.v(TAG, "openAutoNotify onLooperPrepared 已关闭");
 							return false;
 						}
+						Log.v(TAG, "openAutoNotify onLooperPrepared notifyRunnable");
 						mHandler = new Handler();
 						NotifyRunnable notifyRunnable = new NotifyRunnable();
-						if (isDelayNotify) {
-							mHandler.postDelayed(notifyRunnable , mAutoNofiyEventIntervalTime);
-						} else {
-							mHandler.post(notifyRunnable);
-						}
+						mHandler.post(notifyRunnable);
 						return true;
 					} finally {
 						notifyLock.unlock();
@@ -621,8 +631,9 @@ public class Downloader implements IDownloader {
 			if (mHandler != null) {
 				mHandler.removeCallbacks(null);
 				mHandler.getLooper().quit();
+				mHandler = null;
 			}
-			mHandler = null;
+			Log.v(TAG, "closeAutoNofiy");
 		} finally {
 			notifyLock.unlock();
 		}
@@ -633,18 +644,24 @@ public class Downloader implements IDownloader {
 		public void run() {
 			notifyLock.lock();
 			try {
+				if (! mIsAutoNotifyDownloadEvent) {
+					Log.v(TAG, "NotifyRunnable closeAutoNofiy mIsAutoNotifyDownloadEvent:" + mIsAutoNotifyDownloadEvent);
+					closeAutoNofiy();
+					return;
+				}
 				if (mCurrentState != DownloadState.STATE_DOWNLOAD) {
+					Log.v(TAG, "NotifyRunnable closeAutoNofiy"
+							+ " mCurrentState:" + mCurrentState 
+							+ " mIsAutoNotifyDownloadEvent:" + mIsAutoNotifyDownloadEvent);
+					closeAutoNofiy();
 					return;
 				}
+				Log.v(TAG, "NotifyRunnable notify");
 				DownloadTaskInfo taskInfo = getDownloadTaskInfo();
-				if (taskInfo.downloadState != DownloadState.STATE_DOWNLOAD) {
+				if (mListener == null) {
 					return;
 				}
-				DownloadStateChangeListener listener = mListener;
-				if (listener == null) {
-					return;
-				}
-				listener.onDownloadStateChanged(taskInfo);
+				mListener.onDownloadStateChanged(taskInfo);
 				
 				mHandler.postDelayed(this, mAutoNofiyEventIntervalTime);
 			} finally {
@@ -654,22 +671,22 @@ public class Downloader implements IDownloader {
 	}
 	
 	private void updateDownloadTaskInfo(DownloadState state, int errorReason) {
+		notifyLock.lock();
 		try {
 			mCurrentState = state;
 			mErrorResponseCode = errorReason;
 			DownloadTaskInfo taskInfo = getDownloadTaskInfo();
-			DownloadStateChangeListener listener = mListener;
-			if (listener == null) {
+			if (mListener == null) {
 				return;
 			}
 			if (state == DownloadState.STATE_STOP) {
-				listener.onDownloadStateChanged(taskInfo);
+				mListener.onDownloadStateChanged(taskInfo);
 			} else
 			if (mIsRun.get()) {
 				Log.v(TAG, "updateDownloadTaskInfo state:" + state 
 						+ " - url:" + mDownloadParameter.url
 						+ " - ThreadID:" + Thread.currentThread().getId());
-				listener.onDownloadStateChanged(taskInfo);
+				mListener.onDownloadStateChanged(taskInfo);
 			} 
 		} finally {
 			notifyLock.unlock();

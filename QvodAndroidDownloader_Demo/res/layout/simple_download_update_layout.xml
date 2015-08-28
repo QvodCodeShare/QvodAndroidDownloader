@@ -51,4 +51,13 @@
         android:textColor="@color/white"
         android:textSize="15sp" />
 
+    <Button
+        android:id="@+id/btn_test"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:textColor="@color/white"
+        android:textSize="15sp" 
+        android:text="关闭下载中的通知"/>
+
 </RelativeLayout>

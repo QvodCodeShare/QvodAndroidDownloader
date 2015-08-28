@@ -32,7 +32,7 @@ public enum DownloadState {
 	 */
 	STATE_PREPARE, 
 	/**
-	 * 下载中
+	 * 开始下载中
 	 */
 	STATE_DOWNLOAD, 
 	/**

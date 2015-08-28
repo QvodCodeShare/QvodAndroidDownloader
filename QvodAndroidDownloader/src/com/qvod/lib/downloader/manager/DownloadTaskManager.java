@@ -10,6 +10,7 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 import android.content.Context;
+import android.os.Handler;
 import android.util.Log;
 
 import com.qvod.lib.downloader.DownloadOption;
@@ -276,6 +277,11 @@ public class DownloadTaskManager implements IDownloadManager {
 		mExecutor.clearTaskList();
 	}
 	
+	private volatile boolean mIsAutoNotifyDownloadEvent = true;
+	private long mAutoNofiyEventIntervalTime = 1000;
+	private Handler mHandler;
+	private ReentrantLock notifyLock = new ReentrantLock();
+	
 	synchronized void setDownloadTaskState(DownloadTaskInfo taskInfo, DownloadState state) {
 		taskInfo.downloadState = state;
 		notifyDownloadStateChange(taskInfo.clone());
@@ -332,7 +338,7 @@ public class DownloadTaskManager implements IDownloadManager {
 					//当前无网络或当前网络类型不允许进行下载，则等待网络恢复
 					waitNetwork();
 				}
-				
+				downloader.setAutoNotifyDownloadEvent(false, 0);
 				downloader.setDownloadStateChangeListener(this);
 				downloader.setDownloadOption(mDownloadOption);
 				DownloadState state = downloader.download(taskInfo.downloadParameter);

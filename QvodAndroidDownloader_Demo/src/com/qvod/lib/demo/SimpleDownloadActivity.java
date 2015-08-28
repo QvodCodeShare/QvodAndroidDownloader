@@ -1,5 +1,7 @@
 package com.qvod.lib.demo;
 
+import java.util.concurrent.TimeUnit;
+
 import android.app.Activity;
 import android.os.Bundle;
 import android.os.Environment;
@@ -23,6 +25,8 @@ import com.qvod.lib.downloader.DownloadState;
 import com.qvod.lib.downloader.DownloadStateChangeListener;
 import com.qvod.lib.downloader.DownloadTaskInfo;
 import com.qvod.lib.downloader.Downloader;
+import com.qvod.lib.downloader.concurrent.ThreadPoolAlterExecutor;
+import com.qvod.lib.downloader.concurrent.ThreadPoolExecutor;
 
 /**
  * [描述]
@@ -41,6 +45,8 @@ public class SimpleDownloadActivity extends Activity {
 	
 	//test you can see?
 	private DownloadTaskInfo mRecordTaskInfo;
+	
+	private ThreadPoolExecutor mExecutor;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -49,6 +55,7 @@ public class SimpleDownloadActivity extends Activity {
 		setContentView(R.layout.simple_download_update_layout);
 		ButterKnife.inject(this);
 		mHandler = new Handler();
+		mExecutor = ThreadPoolAlterExecutor.createFlexibleExecutor(0, 3, 5 * 1000);
 		mDownloader = new Downloader();
 		showUpdateUI();
 		
@@ -80,6 +87,37 @@ public class SimpleDownloadActivity extends Activity {
 				mDownloader.stop();
 			}
 		}.start();
+	}
+	
+	@OnClick(R.id.btn_test)
+	public void onClickOprateNotify() {
+		mExecutor.execute(new Runnable() {
+			@Override
+			public void run() {
+				if (mDownloader.isAutoNotifyDownloadEvent()) {
+					mDownloader.setAutoNotifyDownloadEvent(false, 0);
+				} else {
+					mDownloader.setAutoNotifyDownloadEvent(true, 1000);
+				}
+				mHandler.post(new Runnable() {
+					@Override
+					public void run() {
+						refreshEventDownloadEventUI();
+					}
+				});
+			}
+		});
+	
+	}
+	
+	private void refreshEventDownloadEventUI() {
+		String text = null;
+		if (mDownloader.isAutoNotifyDownloadEvent()) {
+			text = "关闭刷新通知";
+		} else {
+			text = "开启刷新通知";
+		}
+		btnNotifyEventOpreate.setText(text);
 	}
 	
 	private void startDownload() {
@@ -115,8 +153,8 @@ public class SimpleDownloadActivity extends Activity {
 //				String url = 
 //						"http://download1.52pk.com:8088/hezuo/war3_cn_cwgame.52pk.exe";
 				//apk 236MB 速度很快 
-				/*String url = 
-						"http://cdn.longtugame.com/channel_bin/520006/apk/4.1.2/520006_397.apk";*/
+				String url = 
+						"http://cdn.longtugame.com/channel_bin/520006/apk/4.1.2/520006_397.apk";
 //				String url = 
 //						"https://m.xiaoniu88.com:8477/mobile/s/apk/XNOnline_1.1.0.apk";
 //				String url = 
@@ -126,8 +164,8 @@ public class SimpleDownloadActivity extends Activity {
 //						"https://172.20.20.208:8477/mobile/home.json";
 //				String url = 
 //						"http://172.20.20.208:8002/mobile/home.json";
-				String url = 
-						"http://p.gdown.baidu.com/7b6117b6e6a2becd23968263929a7ddbec5f99e9af83016405f42a51dcd14bf3ed542112e3e21e097b43342f027e41a961d181daeacbcb93899af75968da812459c44d19dca5b4221eda8e547b264ecb1785e4a8cfa859396353f54a3614db17bfe40dc36296e291ea879e50ad4287819e490716122e9b8c7ae9f0564adf97949f4083a379cffb66caeefd2b9a5f2e8af9ee2a713bb09b7912b2fbf95072915c9c4a184148fe6117976e48c8145ef7942ba38f30413a2e790b4ee89f8a08a90eddf281baf40f6e6384e298a78eb5f178746a28bb258d5e7de9822a74f8542b891b5a22a2bb5632fec1250aa4f4faf971cf988ec6817e45229e224bbd8335757258c853b20293d96f1c4a9c22bc42f0fa819265f688d2ee310e577a5fe3f0b06f2702a216d3b633ac9782a3f1d9b2083ef58ccd32b9d16bfaf4d75157fc769591";
+//				String url = 
+//						"http://p.gdown.baidu.com/7b6117b6e6a2becd23968263929a7ddbec5f99e9af83016405f42a51dcd14bf3ed542112e3e21e097b43342f027e41a961d181daeacbcb93899af75968da812459c44d19dca5b4221eda8e547b264ecb1785e4a8cfa859396353f54a3614db17bfe40dc36296e291ea879e50ad4287819e490716122e9b8c7ae9f0564adf97949f4083a379cffb66caeefd2b9a5f2e8af9ee2a713bb09b7912b2fbf95072915c9c4a184148fe6117976e48c8145ef7942ba38f30413a2e790b4ee89f8a08a90eddf281baf40f6e6384e298a78eb5f178746a28bb258d5e7de9822a74f8542b891b5a22a2bb5632fec1250aa4f4faf971cf988ec6817e45229e224bbd8335757258c853b20293d96f1c4a9c22bc42f0fa819265f688d2ee310e577a5fe3f0b06f2702a216d3b633ac9782a3f1d9b2083ef58ccd32b9d16bfaf4d75157fc769591";
 				String saveFileDir = Environment.getExternalStorageDirectory().getAbsolutePath() + "/qvodDownloader";
 				if(mRecordTaskInfo == null) {
 					mDownloader.download(url, saveFileDir);
@@ -155,20 +193,19 @@ public class SimpleDownloadActivity extends Activity {
 						break;
 					case STATE_DOWNLOAD:
 						updateDownloadState("文件开始下载...");
-						autoRefreshProgress();
+						float progress = taskInfo.calcProgress(); 
+						showProgress(progress);
+						Log.v(TAG, "onDownloadStateChanged refreshProgress: " + progress);
 						break;
 					case STATE_COMPLETED:
 						showCompleteUI();
-						cacelRefreshProgress();
 						break;
 					case STATE_STOP:
 						showErrorUI("下载被停止");
-						cacelRefreshProgress();
 						recordDownloadProgress();
 						break;
 					case STATE_ERROR:
 						showErrorUI("下载出错,错误码: " + taskInfo.errorResponseCode);
-						cacelRefreshProgress();
 						recordDownloadProgress();
 						break;
 					default:
@@ -196,26 +233,6 @@ public class SimpleDownloadActivity extends Activity {
 				+ " startPos:" + mRecordTaskInfo.startDownloadPos
 				+ " pogress:" + mRecordTaskInfo.calcProgress());
 	}
-	
-	private void autoRefreshProgress() {
-		mHandler.postDelayed(mRefreshProgressRunnable, 1000);
-	}
-	
-	private void cacelRefreshProgress() {
-		mHandler.removeCallbacks(mRefreshProgressRunnable);
-	}
-	
-	Runnable mRefreshProgressRunnable = new Runnable() {
-		
-		@Override
-		public void run() {
-			DownloadTaskInfo taskInfo = mDownloader.getDownloadTaskInfo();
-			float progress = taskInfo.calcProgress(); 
-			showProgress(progress);
-			autoRefreshProgress();
-			Log.v(TAG, "mRefreshProgressRunnable refreshProgress: " + progress);
-		}
-	};
 	
 	@Override
 	protected void onDestroy() {
@@ -321,5 +338,8 @@ public class SimpleDownloadActivity extends Activity {
 	
 	@InjectView(R.id.flickerAnim)
 	ImageView flickerView;
+	
+	@InjectView(R.id.btn_test)
+	Button btnNotifyEventOpreate;
 }
 

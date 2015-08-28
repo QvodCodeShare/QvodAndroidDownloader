@@ -20,5 +20,7 @@ public interface IDownloader {
 	void setDownloadOption(DownloadOption downloadOption);
 	
 	void setAutoNotifyDownloadEvent(boolean isAutoNotify, long intervalTime);
+	
+	boolean isAutoNotifyDownloadEvent();
 }
 
