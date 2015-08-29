@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -19,6 +20,7 @@ import com.qvod.lib.downloader.DownloadState;
 import com.qvod.lib.downloader.DownloadStateChangeListener;
 import com.qvod.lib.downloader.DownloadTaskInfo;
 import com.qvod.lib.downloader.Downloader;
+import com.qvod.lib.downloader.utils.HandlerThread;
 
 
 /**
@@ -35,11 +37,16 @@ public class DownloadTaskManager implements IDownloadManager {
 	private DownloadOption mDownloadOption = DownloadOption.sDefaultOption;
 	
 	private DownloadTaskPoollExecutor mExecutor = 
-			new DownloadTaskPoollExecutor(0, mDownloadOption.maxDownloadNum, mDownloadOption.threadPoolKeepAliveTime);
+			new DownloadTaskPoollExecutor(0, 
+					mDownloadOption.maxDownloadNum, 
+					mDownloadOption.threadPoolKeepAliveTime);
 	
 	private List<DownloadStateChangeListener> mStateChangeListeners = new ArrayList<DownloadStateChangeListener>();
 	
 	private NetworkStatus[] mAllowDownloadNetwork;
+	private DownloadState[] mRunInQueueStates = new DownloadState[] {
+			DownloadState.STATE_QUEUE, DownloadState.STATE_PREPARE, 
+			DownloadState.STATE_DOWNLOAD, DownloadState.STATE_STOP_ING};
 	
 	private Context mContext;
 	
@@ -81,7 +88,7 @@ public class DownloadTaskManager implements IDownloadManager {
 		}
 	}
 	
-	void runTask(DownloadTask task, boolean isRunTaskTop) {
+	synchronized void runTask(DownloadTask task, boolean isRunTaskTop) {
 		if (task == null) {
 			return;
 		}
@@ -177,6 +184,11 @@ public class DownloadTaskManager implements IDownloadManager {
 		return task.taskInfo.clone();
 	}
 
+	
+	public synchronized DownloadTask findDownloadTask(String id) {
+		return mDownloadTasks.get(id);
+	}
+	
 	@Override
 	public synchronized List<DownloadTaskInfo> getAllDownloadTask() {
 		return getDownloadTaskByState(null);
@@ -211,12 +223,20 @@ public class DownloadTaskManager implements IDownloadManager {
 	}
 
 	@Override
-	public synchronized int getDownloadTaskCountByState(DownloadState state) {
+	public synchronized int getDownloadTaskCountByState(DownloadState[] states) {
 		int count = 0;
+		boolean findState;
 		Iterator<Map.Entry<String,DownloadTask>> it = mDownloadTasks.entrySet().iterator();
 		while(it.hasNext()) {
 			DownloadTask task = it.next().getValue();
-			if (state != null && state != task.taskInfo.downloadState) {
+			findState = false;
+			for(DownloadState s : states) {
+				if (s == task.taskInfo.downloadState) {
+					findState = true;
+					break;
+				}
+			}
+			if (! findState) {
 				continue;
 			}
 			count++;
@@ -235,16 +255,26 @@ public class DownloadTaskManager implements IDownloadManager {
 	}
 
 	@Override
-	public synchronized void addDownloadStateChangeListener(DownloadStateChangeListener listener) {
-		if (listener == null || mStateChangeListeners.contains(listener)) {
+	public void addDownloadStateChangeListener(DownloadStateChangeListener listener) {
+		if (listener == null) {
 			return;
 		}
-		mStateChangeListeners.add(listener);
+		synchronized (mStateChangeListeners) {
+			if(mStateChangeListeners.contains(listener)) {
+				return;
+			}
+			mStateChangeListeners.add(listener);
+		}
 	}
 
 	@Override
 	public synchronized void removeDownloadStateChangeListener(DownloadStateChangeListener listener) {
-		mStateChangeListeners.remove(listener);
+		if(listener == null){
+			return;
+		}
+		synchronized (mStateChangeListeners) {
+			mStateChangeListeners.remove(listener);
+		}
 	}
 
 	@Override
@@ -273,46 +303,127 @@ public class DownloadTaskManager implements IDownloadManager {
 	@Override
 	public synchronized void release() {
 		deleteAllTask(false);
-		mStateChangeListeners.clear();
+		synchronized (mStateChangeListeners) {
+			mStateChangeListeners.clear();
+		}
 		mExecutor.clearTaskList();
 	}
-	
-	private volatile boolean mIsAutoNotifyDownloadEvent = true;
-	private long mAutoNofiyEventIntervalTime = 1000;
-	private Handler mHandler;
-	private ReentrantLock notifyLock = new ReentrantLock();
 	
 	synchronized void setDownloadTaskState(DownloadTaskInfo taskInfo, DownloadState state) {
 		taskInfo.downloadState = state;
 		notifyDownloadStateChange(taskInfo.clone());
 	}
 	
-	synchronized void refreshDownloadTaskState(DownloadTaskInfo refreshTaskInfo) {
-		DownloadTask task = mDownloadTasks.get(refreshTaskInfo.downloadParameter.id);
-		DownloadTaskInfo taskInfo = task.taskInfo;
-		taskInfo.downloadState = refreshTaskInfo.downloadState;
-		taskInfo.currentDownloadSize = refreshTaskInfo.currentDownloadSize;
-		taskInfo.downloadFileLength = refreshTaskInfo.downloadFileLength;
-		taskInfo.errorResponseCode = refreshTaskInfo.errorResponseCode;
-		taskInfo.responseHeader = refreshTaskInfo.responseHeader;
-		taskInfo.saveFileName = refreshTaskInfo.saveFileName;
-		taskInfo.startDownloadPos = refreshTaskInfo.startDownloadPos;
-		taskInfo.extendsMap = refreshTaskInfo.extendsMap;
-		
-		if (task.taskRunner != null 
-				&& refreshTaskInfo.downloadState.ordinal() <= DownloadState.STATE_COMPLETED.ordinal()) {
-			task.taskRunner = null;
-		}
-		
-		notifyDownloadStateChange(taskInfo.clone());
-	}
-
-	void notifyDownloadStateChange(DownloadTaskInfo taskInfo) {
-		for(DownloadStateChangeListener listener : mStateChangeListeners) {
-			listener.onDownloadStateChanged(taskInfo);
-		}
+	private long mAutoNofiyEventIntervalTime = 1000;
+	private Handler mHandler;
+	
+	private synchronized void notifyDownloadStateChange(final DownloadTaskInfo taskInfo) {
+		Log.v(TAG, "notifyDownloadStateChange state:" + taskInfo.downloadState);
+		if (mHandler == null) {
+			final Object lockObject = new Object();
+			HandlerThread thread = new HandlerThread("DownloadNotify"){
+				protected boolean onLooperPrepared() {
+					synchronized (lockObject) {
+						Log.v(TAG, "notifyDownloadStateChange 初始化Handler");
+						mHandler = new Handler();
+						lockObject.notifyAll();
+					}
+					return true;
+			    }
+			};
+			thread.start();
+			synchronized (lockObject) {
+				try {
+					if(mHandler == null) {
+						lockObject.wait();
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		} 
+		Log.v(TAG, "notifyDownloadStateChange postNotify state:" + taskInfo.downloadState);
+		mHandler.post(new Runnable() {
+			@Override
+			public void run() {
+				Log.v(TAG, "NotifyRunnable notify state:" + taskInfo.downloadState);
+				synchronized (mStateChangeListeners) {
+					for(DownloadStateChangeListener listener : mStateChangeListeners) {
+						listener.onDownloadStateChanged(taskInfo);
+					}
+				}
+				closeNotify(true, 3000);
+			}			
+		});
 	}
 	
+	private volatile boolean mIsAutoRefresh = false;
+	Runnable mRefreshRunnable = new Runnable() {
+		@Override
+		public void run() {
+			Log.v(TAG, "mRefreshRunnable");
+			List<DownloadTaskInfo> taskInfos = null;
+			synchronized (DownloadTaskManager.this) {
+				taskInfos = new ArrayList<DownloadTaskInfo>(mRunTasks.size());
+				for(int i = 0;i < mRunTasks.size();i++) {
+					TaskRunnable taskRunnable = mRunTasks.get(i);
+					DownloadTaskInfo info = taskRunnable.refreshDownloadTaskState(null, false);
+					if (info.downloadState != DownloadState.STATE_DOWNLOAD) {
+						Log.v(TAG, "mRefreshRunnable get not downloading state:" + info.downloadState 
+								+ " url:" + info.downloadParameter.url);
+						continue;
+					}
+					taskInfos.add(info);
+				}
+				mHandler.postDelayed(this, mAutoNofiyEventIntervalTime);
+			}
+			
+			synchronized (mStateChangeListeners) {
+				Log.v(TAG, "mRefreshRunnable notifyAll notifyCount:" + taskInfos.size());
+				if (mStateChangeListeners != null) {
+					for(DownloadStateChangeListener listener : mStateChangeListeners) {
+						for(DownloadTaskInfo info : taskInfos) {
+							listener.onDownloadStateChanged(info);
+						}
+					}
+				}				
+			}
+
+		}
+	};
+	
+	private synchronized void closeNotify(boolean needDelay, long delayTime) {
+		if (mRunTasks.size() > 0) {
+			Log.v(TAG, "closeNotify dont need close, mRunTasks size:" + mRunTasks.size());
+			return;
+		}
+		if (mHandler == null) {
+			Log.v(TAG, "closeNotify dont need close, mHandler is empty");
+			return;
+		}
+		int runCount = getDownloadTaskCountByState(mRunInQueueStates);
+		if (runCount > 0) {
+			Log.v(TAG, "closeNotify dont need close, runCount:" + runCount);
+			return;
+		}
+		if (needDelay) {
+			Log.v(TAG, "closeNotify post run");
+			mHandler.postDelayed(new Runnable() {
+				@Override
+				public void run() {
+					closeNotify(false, 0);
+				}
+			}, delayTime);
+			return;
+		}
+		mHandler.removeCallbacks(null);
+		mHandler.getLooper().quit();
+		mHandler = null;
+		Log.v(TAG, "closeNotify");
+	}
+
+	private volatile ArrayList<TaskRunnable> mRunTasks = new ArrayList<TaskRunnable>();
+
 	class TaskRunnable implements Runnable, DownloadStateChangeListener {
 		
 		DownloadTaskInfo taskInfo;
@@ -354,7 +465,7 @@ public class DownloadTaskManager implements IDownloadManager {
 					} else {
 						Log.v(TAG, "TaskRunnable 运行结束");
 						DownloadTaskInfo notifyTaskInfo = downloader.getDownloadTaskInfo();
-						refreshDownloadTaskState(notifyTaskInfo);
+						downloadStateChanged(notifyTaskInfo);
 					}
 				}
 				break;
@@ -362,6 +473,7 @@ public class DownloadTaskManager implements IDownloadManager {
 		}
 		
 		void stop() {
+			Log.v(TAG, "TaskRunnable stop");
 			isRun = false;
 			downloader.stop();
 			signalNetwork();
@@ -372,9 +484,74 @@ public class DownloadTaskManager implements IDownloadManager {
 			if (notifyTaskInfo.downloadState == DownloadState.STATE_ERROR) {
 				return;
 			}
-			refreshDownloadTaskState(notifyTaskInfo);
+			downloadStateChanged(notifyTaskInfo);
 		}
-
+		
+		void downloadStateChanged(DownloadTaskInfo notifyTaskInfo){
+			Log.v(TAG, "downloadStateChanged state: " + notifyTaskInfo.downloadState);
+			synchronized (DownloadTaskManager.this) {
+				refreshDownloadTaskState(notifyTaskInfo, true);
+			
+				if(taskInfo.downloadState == DownloadState.STATE_DOWNLOAD) {
+					mRunTasks.add(this);
+					Log.v(TAG, "downloadStateChanged add mRunTasks " + mRunTasks.size());
+				} else
+				if (! taskInfo.downloadState.isRunInQueue()) {
+					mRunTasks.remove(this);
+					Log.v(TAG, "downloadStateChanged remove mRunTasks " + mRunTasks.size()
+							+ " state: " + taskInfo.downloadState);
+				}
+				
+				if (mRunTasks.size() == 0) {
+					closeNotify(true, 3000);
+				}
+				
+				Handler handler = mHandler;
+				if(handler == null) {
+					Log.v(TAG, "downloadStateChanged mHandler is empty");
+					return;
+				}
+				int downloadCount = mRunTasks.size();
+				if(downloadCount > 0 &&!mIsAutoRefresh) {
+					Log.v(TAG, "downloadStateChanged refresh Downloading Event: open");
+					mIsAutoRefresh = true;
+					handler.postDelayed(mRefreshRunnable, mAutoNofiyEventIntervalTime);
+				} else if (downloadCount <= 0 && mIsAutoRefresh) {
+					Log.i(TAG, "downloadStateChanged refresh Downloading Event: close");
+					mIsAutoRefresh = false;
+					handler.removeCallbacks(mRefreshRunnable);
+				}
+			}
+		}
+		
+		DownloadTaskInfo refreshDownloadTaskState(DownloadTaskInfo refreshTaskInfo, boolean isNotify) {
+			if(refreshTaskInfo == null) {
+				refreshTaskInfo = downloader.getDownloadTaskInfo();
+			}
+			taskInfo.downloadState = refreshTaskInfo.downloadState;
+			taskInfo.currentDownloadSize = refreshTaskInfo.currentDownloadSize;
+			taskInfo.downloadFileLength = refreshTaskInfo.downloadFileLength;
+			taskInfo.errorResponseCode = refreshTaskInfo.errorResponseCode;
+			taskInfo.responseHeader = refreshTaskInfo.responseHeader;
+			taskInfo.saveFileName = refreshTaskInfo.saveFileName;
+			taskInfo.startDownloadPos = refreshTaskInfo.startDownloadPos;
+			taskInfo.extendsMap = refreshTaskInfo.extendsMap;
+			
+			Log.v(TAG, "refreshDownloadTaskState");
+			
+			if (! refreshTaskInfo.downloadState.isRunInQueue()) {
+				DownloadTask task = mDownloadTasks.get(refreshTaskInfo.downloadParameter.id);
+				task.taskRunner = null;
+				
+				Log.v(TAG, "refreshDownloadTaskState taskRunner end");
+			}
+			DownloadTaskInfo refreshInfo = taskInfo.clone();
+			if(isNotify) {
+				notifyDownloadStateChange(refreshInfo);
+			}
+			return refreshInfo;
+		}
+		
 		@Override
 		public int hashCode() {
 			return taskInfo.hashCode();

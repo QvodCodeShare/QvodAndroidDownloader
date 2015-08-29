@@ -38,7 +38,7 @@ public interface IDownloadManager {
 	 
 	 int getDownloadTaskCount();
 	 
-	 int getDownloadTaskCountByState(DownloadState state);
+	 int getDownloadTaskCountByState(DownloadState[] state);
 	 
 	 void setAllowDownloadNetwork(NetworkStatus[] networkStatus);
 	 

@@ -4,3 +4,8 @@ QvodAndroidDownloader_Demo/bin/*/*.*
 QvodAndroidDownloader_Demo/bin/*/*/*.*
 QvodAndroidDownloader_Demo/bin/*/*/*/*.*
 QvodAndroidDownloader_Demo/.apt_generated/*/*/*/*
+QvodAndroidDownloader/gen/*
+QvodAndroidDownloader/gen/*/*
+QvodAndroidDownloader/gen/*/*/*
+QvodAndroidDownloader/gen/*/*/*/*
+QvodAndroidDownloader/gen/*/*/*/*/*

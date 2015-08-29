@@ -1,7 +1,5 @@
 package com.qvod.lib.demo;
 
-import java.util.List;
-
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -71,7 +69,7 @@ public class DownloadManagerActivity extends Activity implements OnItemLongClick
 		mDownloadManager.addDownloadStateChangeListener(downloadListener);
 		
 		mHandler = new Handler();
-		mExecutor = ThreadPoolAlterExecutor.createFlexibleExecutor(0, 5, 1 * 60);
+		mExecutor = ThreadPoolAlterExecutor.createFlexibleExecutor(0, 2, 5 * 1000);
 		mSettingUrls = getResources().getStringArray(R.array.urls);
 	}
 	
@@ -89,12 +87,6 @@ public class DownloadManagerActivity extends Activity implements OnItemLongClick
 						mAdapter.addDownloadItem(refreshItem);
 					}
 					mAdapter.notifyDataSetChanged();
-					
-					if (!isAutoRefreshTask && 
-							taskInfo.downloadState == DownloadState.STATE_DOWNLOAD) {
-						Log.v(TAG, "autoRefreshProgress");
-						autoRefreshProgress();
-					}
 				}
 			});
 		}
@@ -103,17 +95,22 @@ public class DownloadManagerActivity extends Activity implements OnItemLongClick
 	OnDownloadClickListener mDownloadClickListener = new OnDownloadClickListener() {
 
 		@Override
-		public void onSwichClick(DownloadItem file) {
-			if (file.state.ordinal() >= DownloadState.STATE_QUEUE.ordinal()) {
-				mDownloadManager.pauseTask(file.id);
-			} else if (file.state.ordinal() <= DownloadState.STATE_CREATED.ordinal()) {
-				mDownloadManager.runTask(file.id, false);
-			}
+		public void onSwichClick(final DownloadItem file) {
+			mExecutor.execute(new Runnable() {
+				@Override
+				public void run() {
+					if (file.state.ordinal() >= DownloadState.STATE_QUEUE.ordinal()) {
+						mDownloadManager.pauseTask(file.id);
+					} else if (file.state.ordinal() <= DownloadState.STATE_CREATED.ordinal()) {
+						mDownloadManager.runTask(file.id, false);
+					}
+				}
+			});
 		}
 	};
 	
 	private void addTask(final String url) {
-		new Thread() {
+		mExecutor.execute(new Runnable() {
 			public void run() {
 				DownloadParameter parameter = new DownloadParameter();
 				parameter.id = url;
@@ -122,57 +119,7 @@ public class DownloadManagerActivity extends Activity implements OnItemLongClick
 				mDownloadManager.createTask(parameter);
 				
 			}
-		}.start();
-	}
-	
-	private boolean isAutoRefreshTask;
-	private void autoRefreshProgress() {
-		isAutoRefreshTask = true;
-		mHandler.postDelayed(mRefreshProgressRunnable, 1000);
-	}
-	
-	private void cacelRefreshProgress() {
-		isAutoRefreshTask = false;
-		mHandler.removeCallbacks(mRefreshProgressRunnable);
-	}
-	
-	Runnable mRefreshProgressRunnable = new Runnable() {
-		
-		DownloadState[] state = new DownloadState[]{DownloadState.STATE_DOWNLOAD};
-
-		@Override
-		public void run() {
-			mExecutor.execute(new Runnable() {
-				@Override
-				public void run() {
-					final List<DownloadTaskInfo> list = mDownloadManager.getDownloadTaskByState(state);
-					mHandler.post(new Runnable() {
-						@Override
-						public void run() {
-							refershDownloadingTask(list);
-							
-							if (list.size() > 0) {
-								autoRefreshProgress();
-							}
-						}
-					});
-				}
-			});
-		}
-	};
-
-	private void refershDownloadingTask(List<DownloadTaskInfo> list) {
-		for(DownloadTaskInfo taskInfo : list) {
-			DownloadItem item = mAdapter.findDownloadItem(taskInfo.downloadParameter.id);
-			DownloadItem refreshItem = convertDownloadItem(item, taskInfo);
-			if (item == null) {
-				mAdapter.addDownloadItem(refreshItem);
-			}
-			
-			Log.v(TAG, "refershDownloadingTask " + refreshItem.name + " progress:" + refreshItem.progress);
-		}
-		mAdapter.notifyDataSetChanged();
-		Log.v(TAG, "refershDownloadingTask size:" + list.size());
+		});
 	}
 	 
 	@OnClick(R.id.btn_add_task)

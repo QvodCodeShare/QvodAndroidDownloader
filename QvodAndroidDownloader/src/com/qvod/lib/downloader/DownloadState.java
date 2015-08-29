@@ -38,7 +38,13 @@ public enum DownloadState {
 	/**
 	 * 正在暂停
 	 */
-	STATE_STOP_ING,
+	STATE_STOP_ING;
 
+	public boolean isRunInQueue() {
+		if(this.ordinal() >= STATE_QUEUE.ordinal()) {
+			return true;
+		}
+		return false;
+	}
 }
 

@@ -39,8 +39,8 @@ public class DownloadOption {
 		DownloadOption option = new DownloadOption();
 		option.downloadBuffer = 1024;
 		option.downloadThreadNum = 3;
-		option.maxDownloadNum = 3;
-		option.threadPoolKeepAliveTime = 60 * 1000;
+		option.maxDownloadNum = 1;
+		option.threadPoolKeepAliveTime = 10 * 1000;
 		
 		
 		return option;
