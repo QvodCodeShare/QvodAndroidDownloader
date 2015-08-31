@@ -168,15 +168,24 @@ public class Downloader implements IDownloader {
 
 	@Override
 	public void stop() {
+		Log.v(TAG, "stop");
 		mIsRun.set(false);
 		if (mCurrentDownloadThread != null) {
 			mCurrentDownloadThread.interrupt();
 		}
-		if (mWriteAccessFile != null) {
+//		if (mWriteAccessFile != null) {
+//			try {
+//				mWriteAccessFile.close();
+//			} catch (IOException e) {
+//				Log.e(TAG, "stop " + e.toString());
+//			}
+//		}
+		if (bis != null) {
 			try {
-				mWriteAccessFile.close();
-			} catch (IOException e) {
-				Log.e(TAG, "stop " + e.toString());
+				Log.v(TAG, "stop close stream");
+//				bis.close();
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
 		}
 	}
@@ -463,7 +472,7 @@ public class Downloader implements IDownloader {
 			}
 		}
 	}
-	
+	BufferedInputStream bis;
 	private void downloadStream(String downloadPath, long startPos, InputStream inputStream) throws IOException {
 		Log.w(TAG, "downloadStream 下载数据流 downloadPath:" + downloadPath 
 				+ " - startDownloadPos:" + startPos + " - fileSize:" + mEndDownloadPos  
@@ -488,9 +497,9 @@ public class Downloader implements IDownloader {
 			//TODO 需要测试出最佳Buffer大小
 			int buffereSize = mDownloadOption.downloadBuffer;
 			//TODO 加速暂停可是尝试在这里操作 bis
-			BufferedInputStream bis = new BufferedInputStream(inputStream, buffereSize);
+			bis = new BufferedInputStream(inputStream, buffereSize);
 			byte[] buffer = new byte[buffereSize];
-			
+
 			offset = bis.read(buffer, 0, buffereSize);
 			if (offset != -1) {
 				do {
