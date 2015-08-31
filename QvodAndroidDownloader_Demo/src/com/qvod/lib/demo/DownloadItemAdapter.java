@@ -179,8 +179,8 @@ public class DownloadItemAdapter extends BaseAdapter {
 			viewHolder.statusTxt.setText(statusText);
 			viewHolder.statusTxt.setVisibility(View.VISIBLE);
 		} else {
-			viewHolder.statusTxt.setText("");
-			viewHolder.statusTxt.setVisibility(View.GONE);
+			String downloadSize = "/  " + file.downloadSize;
+			viewHolder.statusTxt.setText(downloadSize);
 		}
 		
 		if (file.state != DownloadState.STATE_COMPLETED && file.state != DownloadState.STATE_ERROR) {
@@ -234,7 +234,7 @@ public class DownloadItemAdapter extends BaseAdapter {
 
 	public String getDownloadStatusText(DownloadState state) {
 		if (state == DownloadState.STATE_COMPLETED) {
-			return null;
+			return "已完成";
 		}
 		if (state == DownloadState.STATE_QUEUE) {
 			return "等待中";
@@ -281,5 +281,6 @@ public class DownloadItemAdapter extends BaseAdapter {
 		public int progress;
 		public int fileIconResId;
 		public boolean selected;
+		public String downloadSize;
 	}
 }

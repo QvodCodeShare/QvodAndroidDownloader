@@ -152,6 +152,7 @@ public class DownloadManagerActivity extends Activity implements OnItemLongClick
        	final View textEntryView = factory.inflate(R.layout.alert_dialog_text_entry, null);
  	  	final EditText editText = (EditText)textEntryView.findViewById(R.id.edit_url);
  	  	String hintUrl = mSettingUrls[(int)(Math.random()*mSettingUrls.length)];
+ 	  	hintUrl= "http://dare-04.yxdown.cn/yxdown.com_Warcraft3FrozenThrone1.26_chs.exe";
  	  	editText.setHint(hintUrl);
 
  	  	Dialog dialog = new AlertDialog.Builder(this)
@@ -187,6 +188,7 @@ public class DownloadManagerActivity extends Activity implements OnItemLongClick
 		item.progress = (int)task.calcProgress();
 		item.state = task.downloadState;
 		item.size = StringUtil.getFileSize(task.downloadFileLength);
+		item.downloadSize = StringUtil.getFileSize(task.currentDownloadSize);
 		return item;
 	}
 }

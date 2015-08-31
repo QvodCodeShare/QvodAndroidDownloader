@@ -41,6 +41,8 @@ public class DownloadTaskManager implements IDownloadManager {
 					mDownloadOption.maxDownloadNum, 
 					mDownloadOption.threadPoolKeepAliveTime);
 	
+	private volatile ArrayList<TaskRunnable> mRunTasks = new ArrayList<TaskRunnable>();
+
 	private List<DownloadStateChangeListener> mStateChangeListeners = new ArrayList<DownloadStateChangeListener>();
 	
 	private NetworkStatus[] mAllowDownloadNetwork;
@@ -342,11 +344,11 @@ public class DownloadTaskManager implements IDownloadManager {
 				}
 			}
 		} 
-		Log.v(TAG, "notifyDownloadStateChange postNotify state:" + taskInfo.downloadState);
+		Log.v(TAG, "notifyDownloadStateChange notify state:" + taskInfo.downloadState);
 		mHandler.post(new Runnable() {
 			@Override
 			public void run() {
-				Log.v(TAG, "NotifyRunnable notify state:" + taskInfo.downloadState);
+				Log.v(TAG, "NotifyRunnable postNotify state:" + taskInfo.downloadState);
 				synchronized (mStateChangeListeners) {
 					for(DownloadStateChangeListener listener : mStateChangeListeners) {
 						listener.onDownloadStateChanged(taskInfo);
@@ -357,7 +359,7 @@ public class DownloadTaskManager implements IDownloadManager {
 		});
 	}
 	
-	private volatile boolean mIsAutoRefresh = false;
+	private boolean mIsAutoRefresh = false;
 	Runnable mRefreshRunnable = new Runnable() {
 		@Override
 		public void run() {
@@ -367,7 +369,7 @@ public class DownloadTaskManager implements IDownloadManager {
 				taskInfos = new ArrayList<DownloadTaskInfo>(mRunTasks.size());
 				for(int i = 0;i < mRunTasks.size();i++) {
 					TaskRunnable taskRunnable = mRunTasks.get(i);
-					DownloadTaskInfo info = taskRunnable.refreshDownloadTaskState(null, false);
+					DownloadTaskInfo info = taskRunnable.refreshDownloadTaskState(null);
 					if (info.downloadState != DownloadState.STATE_DOWNLOAD) {
 						Log.v(TAG, "mRefreshRunnable get not downloading state:" + info.downloadState 
 								+ " url:" + info.downloadParameter.url);
@@ -408,12 +410,8 @@ public class DownloadTaskManager implements IDownloadManager {
 		}
 		if (needDelay) {
 			Log.v(TAG, "closeNotify post run");
-			mHandler.postDelayed(new Runnable() {
-				@Override
-				public void run() {
-					closeNotify(false, 0);
-				}
-			}, delayTime);
+			mHandler.removeCallbacks(mCloseNotifyRunnable);
+			mHandler.postDelayed(mCloseNotifyRunnable, delayTime);
 			return;
 		}
 		mHandler.removeCallbacks(null);
@@ -421,8 +419,13 @@ public class DownloadTaskManager implements IDownloadManager {
 		mHandler = null;
 		Log.v(TAG, "closeNotify");
 	}
-
-	private volatile ArrayList<TaskRunnable> mRunTasks = new ArrayList<TaskRunnable>();
+	
+	Runnable mCloseNotifyRunnable = new Runnable() {
+		@Override
+		public void run() {
+			closeNotify(false, 0);
+		}
+	};
 
 	class TaskRunnable implements Runnable, DownloadStateChangeListener {
 		
@@ -490,22 +493,18 @@ public class DownloadTaskManager implements IDownloadManager {
 		void downloadStateChanged(DownloadTaskInfo notifyTaskInfo){
 			Log.v(TAG, "downloadStateChanged state: " + notifyTaskInfo.downloadState);
 			synchronized (DownloadTaskManager.this) {
-				refreshDownloadTaskState(notifyTaskInfo, true);
-			
-				if(taskInfo.downloadState == DownloadState.STATE_DOWNLOAD) {
+				DownloadTaskInfo refreshInfo = refreshDownloadTaskState(notifyTaskInfo);
+				if(refreshInfo.downloadState == DownloadState.STATE_DOWNLOAD) {
 					mRunTasks.add(this);
 					Log.v(TAG, "downloadStateChanged add mRunTasks " + mRunTasks.size());
 				} else
-				if (! taskInfo.downloadState.isRunInQueue()) {
+				if (! refreshInfo.downloadState.isRunInQueue()) {
 					mRunTasks.remove(this);
 					Log.v(TAG, "downloadStateChanged remove mRunTasks " + mRunTasks.size()
 							+ " state: " + taskInfo.downloadState);
 				}
-				
-				if (mRunTasks.size() == 0) {
-					closeNotify(true, 3000);
-				}
-				
+				notifyDownloadStateChange(refreshInfo);
+
 				Handler handler = mHandler;
 				if(handler == null) {
 					Log.v(TAG, "downloadStateChanged mHandler is empty");
@@ -524,7 +523,7 @@ public class DownloadTaskManager implements IDownloadManager {
 			}
 		}
 		
-		DownloadTaskInfo refreshDownloadTaskState(DownloadTaskInfo refreshTaskInfo, boolean isNotify) {
+		DownloadTaskInfo refreshDownloadTaskState(DownloadTaskInfo refreshTaskInfo) {
 			if(refreshTaskInfo == null) {
 				refreshTaskInfo = downloader.getDownloadTaskInfo();
 			}
@@ -546,9 +545,6 @@ public class DownloadTaskManager implements IDownloadManager {
 				Log.v(TAG, "refreshDownloadTaskState taskRunner end");
 			}
 			DownloadTaskInfo refreshInfo = taskInfo.clone();
-			if(isNotify) {
-				notifyDownloadStateChange(refreshInfo);
-			}
 			return refreshInfo;
 		}
 		
